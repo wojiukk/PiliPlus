@@ -1190,6 +1190,22 @@ class ReplyItemGrpc extends StatelessWidget {
               leading: Icon(Icons.error_outline, color: errorColor, size: 19),
               title: Text('举报', style: style.copyWith(color: errorColor)),
             ),
+          if (ownerMid != Int64.ZERO && item.mid != ownerMid)
+            ListTile(
+              onTap: () {
+                Get.back();
+                Pref.setBlackMid(item.mid.toInt());
+                onDelete();
+                SmartDialog.showToast('已屏蔽该用户');
+                return;
+              },
+              minLeadingWidth: 0,
+              leading: Icon(Icons.block, color: errorColor, size: 19),
+              title: Text(
+                '屏蔽该用户',
+                style: TextStyle(fontSize: 14, color: errorColor),
+              ),
+            ),
           if (replyLevel == 1 && !isSubReply && ownerMid == upMid)
             ListTile(
               onTap: () {
