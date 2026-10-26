@@ -118,6 +118,34 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().backupBlacklist,
+                    child: const Text('备份黑名单'),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().restoreBlacklist,
+                    child: const Text('恢复黑名单'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
