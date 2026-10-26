@@ -4,6 +4,7 @@ import 'package:PiliPlus/grpc/bilibili/pagination.pb.dart';
 import 'package:PiliPlus/grpc/grpc_req.dart';
 import 'package:PiliPlus/grpc/url.dart';
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:fixnum/fixnum.dart';
@@ -12,6 +13,7 @@ abstract final class ReplyGrpc {
   static bool antiGoodsReply = Pref.antiGoodsReply;
   static var blockAtOnlyReply = Pref.blockAtOnlyReply;
   static var blockReplyAtCount = Pref.blockReplyAtCount;
+  static var blockReplyLevel = Pref.blockReplyLevel;
   static RegExp replyRegExp = RegExp(
     Pref.banWordForReply,
     caseSensitive: false,
@@ -96,8 +98,22 @@ abstract final class ReplyGrpc {
         reply.content.atNameToMid.length >= blockReplyAtCount!;
   }
 
-  static bool needRemoveGrpc(ReplyInfo reply) {
+  /// 屏蔽低等级评论；[upMid] 用于豁免 UP 本人
+  static bool _blockReplyLevel(ReplyInfo reply, Int64? upMid) {
+    final maxLevel = blockReplyLevel;
+    if (maxLevel <= 0) return false;
+    // 豁免 UP 本人和自己
+    if (reply.mid == upMid) return false;
+    if (reply.mid.toInt() == Accounts.main.mid) return false;
+    final member = reply.member;
+    // 等级数据缺失（已注销/接口未返回）时不处理，避免误删
+    if (!member.hasLevel()) return false;
+    return member.level.toInt() <= maxLevel;
+  }
+
+  static bool needRemoveGrpc(ReplyInfo reply, {Int64? upMid}) {
     return GlobalData().blackMids.contains(reply.mid.toInt()) ||
+        _blockReplyLevel(reply, upMid) ||
         _blockReplyAtCount(reply) ||
         _blockAtOnlyReply(reply) ||
         (antiGoodsReply && _needRemoveGoodGrpc(reply)) ||
@@ -129,15 +145,16 @@ abstract final class ReplyGrpc {
     );
     if (res case Success(:final response)) {
       // keyword filter
-      if (response.hasUpTop() && needRemoveGrpc(response.upTop)) {
+      final upMid = response.subjectControl.upMid;
+      if (response.hasUpTop() && needRemoveGrpc(response.upTop, upMid: upMid)) {
         response.clearUpTop();
       }
 
       if (response.replies.isNotEmpty) {
         response.replies.removeWhere((item) {
-          final hasMatch = needRemoveGrpc(item);
+          final hasMatch = needRemoveGrpc(item, upMid: upMid);
           if (!hasMatch && item.replies.isNotEmpty) {
-            item.replies.removeWhere(needRemoveGrpc);
+            item.replies.removeWhere((e) => needRemoveGrpc(e, upMid: upMid));
           }
           return hasMatch;
         });
