@@ -250,6 +250,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
       replyReply: (item, id) => throttleReplyReply(context, item, id),
       onReply: controller.onReply,
       onDelete: (item, subIndex) => controller.onRemove(index, item, subIndex),
+      onBlockUser: controller.blockUser,
       upMid: controller.upMid,
       onViewImage: hideFab,
       onCheckReply: controller.onCheckReply,

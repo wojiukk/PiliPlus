@@ -225,6 +225,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
             onReply: (replyItem) => _controller.onReply(replyItem, index: -1),
             upMid: widget.upMid ?? _controller.upMid,
             onCheckReply: _controller.onCheckReply,
+            onBlockUser: _controller.blockUser,
           ),
         ),
         SliverToBoxAdapter(
@@ -327,6 +328,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       replyLevel: isDialogue ? 3 : 2,
       onReply: (replyItem) => _controller.onReply(replyItem, index: index),
       onDelete: (item, subIndex) => _controller.onRemove(index, item, null),
+      onBlockUser: _controller.blockUser,
       upMid: _controller.upMid,
       showDialogue: () => MiniScaffold.of(context).showBottomSheet(
         constraints: const BoxConstraints(),

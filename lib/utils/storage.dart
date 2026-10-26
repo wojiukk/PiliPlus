@@ -8,8 +8,10 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account_adapter.dart';
 import 'package:PiliPlus/utils/accounts/account_type_adapter.dart';
 import 'package:PiliPlus/utils/accounts/cookie_jar_adapter.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/set_int_adapter.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:hive_ce/hive.dart';
@@ -81,6 +83,8 @@ abstract final class GStorage {
     return Utils.jsonEncoder.convert({
       setting.name: setting.toMap(),
       video.name: video.toMap(),
+      // 黑名单在 localCache box 里，不随 setting 一起导出，这里单独带一份
+      LocalCacheKey.blackMids: Pref.blackMids.toList(),
     });
   }
 
@@ -90,6 +94,16 @@ abstract final class GStorage {
   static Future<List<void>> importAllJsonSettings(
     Map<String, dynamic> map,
   ) {
+    // 老备份（或别人的备份）里没有该键时保留本地黑名单，不清空
+    if (map[LocalCacheKey.blackMids] case final List<dynamic> list) {
+      final ids = Set<int>.from(list.whereType<int>());
+      // 必须就地修改：GlobalData() 是单例，blackMids 在构造时已绑定这个 Set，
+      // whereNotBlocked 全程读该引用；换成新 Set 会导致本次进程仍按旧名单过滤
+      final set = GlobalData().blackMids
+        ..clear()
+        ..addAll(ids);
+      Pref.blackMids = set;
+    }
     return Future.wait([
       setting.clear().then((_) => setting.putAll(map[setting.name])),
       video.clear().then((_) => video.putAll(map[video.name])),

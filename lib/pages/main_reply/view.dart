@@ -143,6 +143,7 @@ class _MainReplyPageState extends State<MainReplyPage>
                       onReply: _controller.onReply,
                       onDelete: (item, subIndex) =>
                           _controller.onRemove(index, item, subIndex),
+                      onBlockUser: _controller.blockUser,
                       upMid: _controller.upMid,
                       onCheckReply: _controller.onCheckReply,
                       onToggleTop: (item) => _controller.onToggleTop(

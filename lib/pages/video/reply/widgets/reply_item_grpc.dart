@@ -76,6 +76,7 @@ class ReplyItemGrpc extends StatelessWidget {
     this.onViewImage,
     this.onCheckReply,
     this.onToggleTop,
+    this.onBlockUser,
     this.jumpToDialogue,
   });
   final ReplyInfo replyItem;
@@ -90,6 +91,7 @@ class ReplyItemGrpc extends StatelessWidget {
   final VoidCallback? onViewImage;
   final ValueChanged<ReplyInfo>? onCheckReply;
   final ValueChanged<ReplyInfo>? onToggleTop;
+  final ValueChanged<ReplyInfo>? onBlockUser;
   final VoidCallback? jumpToDialogue;
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
@@ -1194,8 +1196,13 @@ class ReplyItemGrpc extends StatelessWidget {
             ListTile(
               onTap: () {
                 Get.back();
-                Pref.setBlackMid(item.mid.toInt());
-                onDelete();
+                final blockUser = onBlockUser;
+                if (blockUser != null) {
+                  blockUser(item);
+                } else {
+                  Pref.setBlackMid(item.mid.toInt());
+                  onDelete();
+                }
                 SmartDialog.showToast('已屏蔽该用户');
                 return;
               },

@@ -317,6 +317,28 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     loadingState.refresh();
   }
 
+  /// 屏蔽评论作者：写入本地黑名单，并清掉已加载列表里这个人的全部评论
+  void blockUser(ReplyInfo item) {
+    final mid = item.mid;
+    Pref.setBlackMid(mid.toInt());
+    if (loadingState.value case Success(:final response)) {
+      final data = response;
+      if (data == null) return;
+      final before = data.length;
+      for (final root in data) {
+        root.replies.removeWhere((e) => e.mid == mid);
+      }
+      data.removeWhere((e) => e.mid == mid);
+      final removed = before - data.length;
+      if (removed > 0) {
+        if (count.value > 0) {
+          count.value -= removed;
+        }
+        loadingState.refresh();
+      }
+    }
+  }
+
   void onCheckReply(ReplyInfo replyInfo, {bool isManual = true}) {
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,
