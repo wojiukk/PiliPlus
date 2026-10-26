@@ -163,6 +163,7 @@ abstract final class SettingBoxKey {
       buvid = 'buvid',
       blockAtOnlyReply = 'blockAtOnlyReply',
       blockReplyAtCount = 'blockReplyAtCount',
+      blockReplyLevel = 'blockReplyLevel',
       filterIntro = 'filterIntro';
 
   static const String superChatType = 'superChatType',
