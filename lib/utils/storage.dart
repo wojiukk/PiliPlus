@@ -110,6 +110,29 @@ abstract final class GStorage {
     ]);
   }
 
+  /// 仅导出黑名单（WebDAV 单独同步用，不含设置）
+  static String exportBlacklist() => Utils.jsonEncoder.convert({
+    LocalCacheKey.blackMids: Pref.blackMids.toList(),
+  });
+
+  /// 解析黑名单备份，返回其中的 mid 集合；格式不对时返回空集合
+  static Set<int> parseBlacklist(String data) {
+    final map = jsonDecode(data);
+    if (map is Map) {
+      if (map[LocalCacheKey.blackMids] case final List<dynamic> list) {
+        return Set<int>.from(list.whereType<int>());
+      }
+    }
+    return <int>{};
+  }
+
+  /// 合并黑名单（本地 ∪ [ids]），返回合并后的总人数
+  static int mergeBlacklist(Set<int> ids) {
+    final set = GlobalData().blackMids..addAll(ids);
+    Pref.blackMids = set;
+    return set.length;
+  }
+
   static void regAdapter() {
     Hive
       ..registerAdapter(OwnerAdapter())
