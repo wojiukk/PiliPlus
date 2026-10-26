@@ -1099,6 +1099,10 @@ abstract final class Pref {
   static int? get blockReplyAtCount =>
       _setting.get(SettingBoxKey.blockReplyAtCount);
 
+  /// 屏蔽等级 ≤ 该值的评论，0 表示关闭
+  static int get blockReplyLevel =>
+      _setting.get(SettingBoxKey.blockReplyLevel, defaultValue: 4);
+
   static bool get filterIntro =>
       _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
 }
