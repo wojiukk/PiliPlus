@@ -117,4 +117,55 @@ class WebDav {
       SmartDialog.showToast('恢复失败: $e');
     }
   }
+
+  /// 黑名单单独同步：固定文件名，三平台通用
+  static const String _blacklistFileName = 'piliplus_blacklist.json';
+
+  Future<void> backupBlacklist() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('备份失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_blacklistFileName';
+      try {
+        await client.remove(path);
+      } catch (_) {}
+      await client.write(path, utf8.encode(GStorage.exportBlacklist()));
+      SmartDialog.showToast('已备份黑名单 ${Pref.blackMids.length} 人');
+    } catch (e) {
+      SmartDialog.showToast('备份失败: $e');
+    }
+  }
+
+  Future<void> restoreBlacklist() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('恢复失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_blacklistFileName';
+      final data = await client.read(path);
+      final ids = GStorage.parseBlacklist(utf8.decode(data));
+      if (ids.isEmpty) {
+        SmartDialog.showToast('备份里没有黑名单');
+        return;
+      }
+      final before = Pref.blackMids.length;
+      final total = GStorage.mergeBlacklist(ids);
+      SmartDialog.showToast(
+        '已合并：备份 ${ids.length} 人 / 新增 ${total - before} 人 / 共 $total 人',
+      );
+    } catch (e) {
+      SmartDialog.showToast('恢复失败: $e');
+    }
+  }
 }
