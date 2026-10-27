@@ -165,6 +165,7 @@ abstract final class SettingBoxKey {
       blockReplyAtCount = 'blockReplyAtCount',
       blockReplyLevel = 'blockReplyLevel',
       blockFansMedal = 'blockFansMedal',
+      blockSearchTags = 'blockSearchTags',
       filterIntro = 'filterIntro';
 
   static const String superChatType = 'superChatType',
