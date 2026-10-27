@@ -1,54 +1,60 @@
-import 'package:PiliPlus/http/fan.dart';
 import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models_new/follow/data.dart';
-import 'package:PiliPlus/pages/follow_type/controller.dart';
-import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/http/msg.dart';
+import 'package:PiliPlus/models_new/msg/msg_reply/data.dart';
+import 'package:PiliPlus/models_new/msg/msg_reply/item.dart';
+import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 
-class FansController extends FollowTypeController {
-  FansController(this.showName);
-  final bool showName;
-  late final bool isOwner;
+class ReplyMeController
+    extends CommonListController<MsgReplyData, MsgReplyItem> {
+  int? cursor;
+  int? cursorTime;
 
   @override
-  void init() {
-    final Map? args = Get.arguments;
-    final ownerMid = Accounts.main.mid;
-    final int? mid = args?['mid'];
-    this.mid = mid ?? ownerMid;
-    isOwner = ownerMid == this.mid;
-    if (showName && !isOwner) {
-      final String? name = args?['name'];
-      this.name = RxnString(name);
-      if (name == null) {
-        queryUserName();
-      }
-    }
+  void onInit() {
+    super.onInit();
     queryData();
   }
 
   @override
-  Future<LoadingState<FollowData>> customGetData() => FanHttp.fans(
-    vmid: mid,
-    pn: page,
-    orderType: 'attention',
-  );
-
-  Future<void> onRemoveFan(int index, int mid) async {
-    final res = await VideoHttp.relationMod(
-      mid: mid,
-      act: 7,
-      reSrc: 11,
-    );
-    if (res.isSuccess) {
-      loadingState
-        ..value.data!.removeAt(index)
-        ..refresh();
-      SmartDialog.showToast('移除成功');
-    } else {
-      res.toast();
+  List<MsgReplyItem>? getDataList(MsgReplyData response) {
+    if (response.cursor?.isEnd == true) {
+      isEnd = true;
     }
+    cursor = response.cursor?.id;
+    cursorTime = response.cursor?.time;
+    final items = response.items;
+    final blackMids = GlobalData().blackMids;
+    // 被屏蔽的人给我的回复也不显示
+    if (items == null || blackMids.isEmpty) return items;
+    return items
+        .where((e) => e.user?.mid == null || !blackMids.contains(e.user!.mid))
+        .toList();
+  }
+
+  @override
+  Future<void> onRefresh() {
+    cursor = null;
+    cursorTime = null;
+    return super.onRefresh();
+  }
+
+  @override
+  Future<LoadingState<MsgReplyData>> customGetData() =>
+      MsgHttp.msgFeedReplyMe(cursor: cursor, cursorTime: cursorTime);
+
+  Future<void> onRemove(dynamic id, int index) async {
+    try {
+      final res = await MsgHttp.delMsgfeed(1, id);
+      if (res.isSuccess) {
+        loadingState
+          ..value.data!.removeAt(index)
+          ..refresh();
+        SmartDialog.showToast('删除成功');
+      } else {
+        res.toast();
+      }
+    } catch (_) {}
   }
 }
