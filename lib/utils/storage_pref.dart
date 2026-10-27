@@ -1103,6 +1103,17 @@ abstract final class Pref {
   static int get blockReplyLevel =>
       _setting.get(SettingBoxKey.blockReplyLevel, defaultValue: 4);
 
+  /// 粉丝牌屏蔽名单原始字符串（逗号或换行分隔）
+  static String get blockFansMedalRaw =>
+      _setting.get(SettingBoxKey.blockFansMedal, defaultValue: '') as String;
+
+  /// 需要屏蔽的粉丝牌名字集合
+  static Set<String> get blockFansMedals => blockFansMedalRaw
+      .split(RegExp(r'[,，\n\r]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
   static bool get filterIntro =>
       _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
 }
