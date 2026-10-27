@@ -87,6 +87,12 @@ List<SettingsModel> get replySettings => [
     leading: Icon(Icons.military_tech_outlined),
     onTap: _showReplyLevelDialog,
   ),
+  const NormalModel(
+    title: '屏蔽粉丝牌',
+    getSubtitle: _fansMedalSubtitle,
+    leading: Icon(Icons.workspace_premium_outlined),
+    onTap: _showFansMedalDialog,
+  ),
   const SwitchModel(
     title: '屏蔽复制简介评论',
     leading: Icon(Icons.summarize),
@@ -270,6 +276,64 @@ Future<void> _showReplyLevelDialog(
             trailing: i == current ? const Icon(Icons.check) : null,
             onTap: () => onChanged(i),
           ),
+      ],
+    ),
+  );
+}
+
+String _fansMedalSubtitle() {
+  final medals = Pref.blockFansMedals;
+  if (medals.isEmpty) return '禁用';
+  final shown = medals.take(2).join('、');
+  return medals.length <= 2 ? '屏蔽 $shown' : '屏蔽 $shown 等 ${medals.length} 个牌子';
+}
+
+Future<void> _showFansMedalDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final controller = TextEditingController(text: Pref.blockFansMedalRaw);
+  void onConfirm() {
+    Get.back();
+    GStorage.setting
+        .put(SettingBoxKey.blockFansMedal, controller.text)
+        .whenComplete(() {
+          ReplyGrpc.blockFansMedals = Pref.blockFansMedals;
+          setState();
+        });
+  }
+
+  await showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('屏蔽粉丝牌'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        minLines: 4,
+        maxLines: 8,
+        keyboardType: TextInputType.multiline,
+        decoration: const InputDecoration(
+          hintText: '每行一个，或用逗号分隔\n支持片段匹配：输入「某某」即可命中「某某的粉丝牌」',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            controller.text = '';
+            onConfirm();
+          },
+          child: const Text('清空'),
+        ),
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(onPressed: onConfirm, child: const Text('确定')),
       ],
     ),
   );
