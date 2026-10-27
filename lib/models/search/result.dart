@@ -10,6 +10,7 @@ import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 abstract class SearchNumData<T> {
@@ -41,13 +42,27 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
     return seen.add(key);
   }
 
+  /// 标签黑名单：命中即隐藏，优先级高于搜索词本身
+  /// （即搜索词就是黑名单标签时，同样屏蔽）
+  static bool _blockByTag(SearchVideoItemModel item, Set<String> blockTags) {
+    if (blockTags.isEmpty) return false;
+    if (item.tagList.isNotEmpty) {
+      return item.tagList.any((tag) => blockTags.contains(tag));
+    }
+    // 接口没返回标签时退化为标题/简介匹配，保证老接口也能生效
+    final text = '${item.title} ${item.desc ?? ''}'.toLowerCase();
+    return blockTags.any((tag) => text.contains(tag));
+  }
+
   SearchVideoData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     final seen = <String>{};
+    final blockTags = Pref.blockSearchTags;
     list = (json['result'] as List?)
         ?.whereNotBlocked((e) => e['mid'])
         .map((e) => SearchVideoItemModel.fromJson(e))
         .where((e) => !_isLowQuality(e))
+        .where((e) => !_blockByTag(e, blockTags))
         .where((e) => _firstSeen(e, seen))
         .toList();
   }
@@ -65,10 +80,12 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
           case 'video':
             {
               final seen = <String>{};
+              final blockTags = Pref.blockSearchTags;
               list = (item['data'] as List?)
                   ?.whereNotBlocked((e) => e['mid'])
                   .map((e) => SearchVideoItemModel.fromJson(e))
                   .where((e) => !_isLowQuality(e))
+                  .where((e) => !_blockByTag(e, blockTags))
                   .where((e) => _firstSeen(e, seen))
                   .toList();
             }
@@ -209,6 +226,9 @@ class SearchVideoItemModel extends HorizontalVideoModel {
   int? id;
   String? arcurl;
   String? tag;
+
+  /// 拆分后的标签（小写、去空）；接口没返回标签时为空
+  List<String> tagList = const [];
   int? ctime;
 
   @override
@@ -219,6 +239,18 @@ class SearchVideoItemModel extends HorizontalVideoModel {
     arcurl = json['arcurl'];
     aid = json['aid'];
     bvid = json['bvid'];
+    tag = switch (json['tag']) {
+      final String s => s,
+      final List<dynamic> l => l.whereType<String>().join(','),
+      _ => null,
+    };
+    tagList = tag == null
+        ? const []
+        : tag!
+              .split(RegExp(r'[,，|、]'))
+              .map((e) => e.trim().toLowerCase())
+              .where((e) => e.isNotEmpty)
+              .toList();
     titleList = Em.regTitle(json['title']);
     title = titleList!.map((i) => i.text).join();
     desc = json['description'];
