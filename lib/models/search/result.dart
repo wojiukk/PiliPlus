@@ -9,6 +9,7 @@ import 'package:PiliPlus/utils/em.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
+import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 abstract class SearchNumData<T> {
@@ -27,11 +28,27 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
     super.list,
   });
 
+  /// 搜索结果的低质量过滤：只应用「时长 / 播放量 / 点赞比」三条，
+  /// 刻意不应用标题关键词（否则搜被屏蔽的词会一条都搜不到）
+  static bool _isLowQuality(SearchVideoItemModel item) =>
+      RecommendFilter.filterDuration(item.duration) ||
+      RecommendFilter.filterLikeRatio(item.stat.like, item.stat.view);
+
+  /// 同一 BV 号只保留第一次出现（接口偶尔会重复返回同一条视频）
+  static bool _firstSeen(SearchVideoItemModel item, Set<String> seen) {
+    final key = item.bvid ?? item.aid?.toString();
+    if (key == null || key.isEmpty) return true;
+    return seen.add(key);
+  }
+
   SearchVideoData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
+    final seen = <String>{};
     list = (json['result'] as List?)
         ?.whereNotBlocked((e) => e['mid'])
         .map((e) => SearchVideoItemModel.fromJson(e))
+        .where((e) => !_isLowQuality(e))
+        .where((e) => _firstSeen(e, seen))
         .toList();
   }
 
@@ -46,10 +63,15 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
       for (final item in result) {
         switch (item['result_type']) {
           case 'video':
-            list = (item['data'] as List?)
-                ?.whereNotBlocked((e) => e['mid'])
-                .map((e) => SearchVideoItemModel.fromJson(e))
-                .toList();
+            {
+              final seen = <String>{};
+              list = (item['data'] as List?)
+                  ?.whereNotBlocked((e) => e['mid'])
+                  .map((e) => SearchVideoItemModel.fromJson(e))
+                  .where((e) => !_isLowQuality(e))
+                  .where((e) => _firstSeen(e, seen))
+                  .toList();
+            }
           case 'bili_user':
             if (item['data'] case List users when users.isNotEmpty) {
               for (final e in users) {
