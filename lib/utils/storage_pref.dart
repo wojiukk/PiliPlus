@@ -1114,6 +1114,20 @@ abstract final class Pref {
       .where((e) => e.isNotEmpty)
       .toSet();
 
+  /// 搜索标签黑名单原始字符串（换行或逗号分隔）
+  static String get blockSearchTagsRaw =>
+      _setting.get(SettingBoxKey.blockSearchTags, defaultValue: '') as String;
+
+  /// 搜索结果里要屏蔽的标签集合（统一小写比较，避免大小写漏判）
+  static Set<String> get blockSearchTags => blockSearchTagsRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim().toLowerCase())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set blockSearchTags(Set<String> tags) =>
+      _setting.put(SettingBoxKey.blockSearchTags, tags.join('\n'));
+
   static bool get filterIntro =>
       _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
 }
