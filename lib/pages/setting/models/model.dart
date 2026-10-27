@@ -271,6 +271,80 @@ SettingsModel getBanWordModel({
   );
 }
 
+/// 多行文本设置：一行一个（也支持逗号分隔），可整段粘贴批量添加
+SettingsModel getBlockTagsModel({
+  required String title,
+  required String key,
+  String? scope,
+}) {
+  String raw = GStorage.setting.get(key, defaultValue: '');
+  int countOf(String value) => value
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .length;
+  return NormalModel(
+    leading: const Icon(Icons.label_off_outlined),
+    title: title,
+    getSubtitle: () {
+      final count = countOf(raw);
+      final subtitle = count == 0 ? '点击添加' : '已屏蔽 $count 个标签';
+      if (scope != null) {
+        return '作用域: $scope\n$subtitle';
+      }
+      return subtitle;
+    },
+    onTap: (context, setState) {
+      String editValue = raw;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          constraints: Style.dialogFixedConstraints,
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '一行一个标签，也可用逗号分隔，支持整段粘贴批量添加。\n'
+                '命中的视频在搜索结果里直接隐藏，搜索词本身是黑名单标签时同样屏蔽。',
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                autofocus: true,
+                initialValue: editValue,
+                minLines: 6,
+                maxLines: 12,
+                keyboardType: TextInputType.multiline,
+                onChanged: (value) => editValue = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: Get.back,
+              child: Text(
+                '取消',
+                style: TextStyle(color: ColorScheme.of(context).outline),
+              ),
+            ),
+            TextButton(
+              child: const Text('保存'),
+              onPressed: () {
+                Get.back();
+                raw = editValue;
+                setState();
+                GStorage.setting.put(key, editValue);
+                SmartDialog.showToast('已保存');
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 SettingsModel getVideoFilterSelectModel({
   required String title,
   String? subtitle,
