@@ -78,6 +78,35 @@ class SearchVideoController
     return response.list;
   }
 
+  /// 跨页去重：B站 搜索翻页时，下一页开头常常把上一页末尾的视频再返回一次，
+  /// 追加进列表后就变成上下两条一模一样的视频（result.dart 里的 _firstSeen
+  /// 只在单次响应内部去重，管不到跨页）。
+  /// 这里按 bvid / aid 记录已经出现过的条目，重复的从新一页里剔除。
+  final Set<String> _seenKeys = <String>{};
+
+  bool _markSeen(SearchVideoItemModel item) {
+    final bvid = item.bvid;
+    if (bvid != null && bvid.isNotEmpty && !_seenKeys.add(bvid)) {
+      return false;
+    }
+    final aid = item.aid?.toString();
+    if (aid != null && !_seenKeys.add(aid)) {
+      return false;
+    }
+    return true;
+  }
+
+  @override
+  void handleListResponse(List<SearchVideoItemModel> dataList) {
+    dataList.removeWhere((e) => !_markSeen(e));
+  }
+
+  @override
+  Future<void> onRefresh() {
+    _seenKeys.clear();
+    return super.onRefresh();
+  }
+
   final Rx<ArchiveFilterType> selectedType = ArchiveFilterType.totalrank.obs;
   VideoPubTimeType? pubTimeType = VideoPubTimeType.all;
   late DateTime pubBeginDate;
