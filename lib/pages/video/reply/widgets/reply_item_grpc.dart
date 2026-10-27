@@ -1194,7 +1194,7 @@ class ReplyItemGrpc extends StatelessWidget {
             ),
           if (ownerMid != Int64.ZERO && item.mid != ownerMid)
             ListTile(
-              onTap: () {
+              onTap: () async {
                 Get.back();
                 final blockUser = onBlockUser;
                 if (blockUser != null) {
@@ -1204,6 +1204,25 @@ class ReplyItemGrpc extends StatelessWidget {
                   onDelete();
                 }
                 SmartDialog.showToast('已屏蔽该用户');
+                // 顺便问一句要不要连他的粉丝牌一起屏蔽
+                final member = item.member;
+                final medalName = member.fansMedalName;
+                if (member.hasFansMedalLevel() && medalName.isNotEmpty) {
+                  final addMedal = await showConfirmDialog(
+                    context: context,
+                    title: Text('同时屏蔽「$medalName」的粉丝牌？'),
+                    content: const Text('之后带这个牌子的评论都会隐藏'),
+                  );
+                  if (addMedal) {
+                    final medals = Pref.blockFansMedals..add(medalName);
+                    await GStorage.setting.put(
+                      SettingBoxKey.blockFansMedal,
+                      medals.join(','),
+                    );
+                    ReplyGrpc.blockFansMedals = Pref.blockFansMedals;
+                    SmartDialog.showToast('已同时屏蔽该粉丝牌');
+                  }
+                }
                 return;
               },
               minLeadingWidth: 0,
