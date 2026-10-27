@@ -146,6 +146,34 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().backupBlockTags,
+                    child: const Text('备份标签'),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().restoreBlockTags,
+                    child: const Text('恢复标签'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
