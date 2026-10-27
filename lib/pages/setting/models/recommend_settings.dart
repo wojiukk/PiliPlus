@@ -105,4 +105,9 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: true,
     onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
   ),
+  getBlockTagsModel(
+    title: '搜索标签黑名单',
+    key: SettingBoxKey.blockSearchTags,
+    scope: '搜索结果（综合/视频）',
+  ),
 ];
