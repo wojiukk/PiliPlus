@@ -133,6 +133,42 @@ abstract final class GStorage {
     return set.length;
   }
 
+  /// 仅导出搜索标签黑名单（WebDAV 单独同步用）
+  static String exportBlockTags() => Utils.jsonEncoder.convert({
+    SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
+  });
+
+  /// 解析标签黑名单备份，返回原始文本；格式不对时返回空字符串
+  static String parseBlockTags(String data) {
+    final map = jsonDecode(data);
+    if (map is Map) {
+      if (map[SettingBoxKey.blockSearchTags] case final String tags) {
+        return tags;
+      }
+      if (map[SettingBoxKey.blockSearchTags] case final List<dynamic> list) {
+        return list.whereType<String>().join('\n');
+      }
+    }
+    return '';
+  }
+
+  /// 合并标签黑名单（本地 ∪ [raw]），返回合并后的标签总数
+  /// 按小写判重，保留用户原本的写法
+  static int mergeBlockTags(String raw) {
+    Iterable<String> split(String value) => value
+        .split(RegExp(r'[,，\n\r|、]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty);
+
+    final seen = <String>{};
+    final merged = <String>[];
+    for (final tag in [...split(Pref.blockSearchTagsRaw), ...split(raw)]) {
+      if (seen.add(tag.toLowerCase())) merged.add(tag);
+    }
+    Pref.blockSearchTags = merged.toSet();
+    return merged.length;
+  }
+
   static void regAdapter() {
     Hive
       ..registerAdapter(OwnerAdapter())
