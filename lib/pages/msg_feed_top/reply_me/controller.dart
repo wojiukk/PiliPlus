@@ -3,6 +3,7 @@ import 'package:PiliPlus/http/msg.dart';
 import 'package:PiliPlus/models_new/msg/msg_reply/data.dart';
 import 'package:PiliPlus/models_new/msg/msg_reply/item.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 class ReplyMeController
@@ -23,7 +24,13 @@ class ReplyMeController
     }
     cursor = response.cursor?.id;
     cursorTime = response.cursor?.time;
-    return response.items;
+    final items = response.items;
+    final blackMids = GlobalData().blackMids;
+    // 被屏蔽的人给我的回复也不显示
+    if (items == null || blackMids.isEmpty) return items;
+    return items
+        .where((e) => e.user?.mid == null || !blackMids.contains(e.user!.mid))
+        .toList();
   }
 
   @override
