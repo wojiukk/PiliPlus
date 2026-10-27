@@ -168,4 +168,52 @@ class WebDav {
       SmartDialog.showToast('恢复失败: $e');
     }
   }
+
+  /// 搜索标签黑名单单独同步：固定文件名，三平台通用
+  static const String _blockTagsFileName = 'piliplus_block_tags.json';
+
+  Future<void> backupBlockTags() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('备份失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_blockTagsFileName';
+      try {
+        await client.remove(path);
+      } catch (_) {}
+      await client.write(path, utf8.encode(GStorage.exportBlockTags()));
+      SmartDialog.showToast('已备份标签黑名单');
+    } catch (e) {
+      SmartDialog.showToast('备份失败: $e');
+    }
+  }
+
+  Future<void> restoreBlockTags() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('恢复失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_blockTagsFileName';
+      final data = await client.read(path);
+      final raw = GStorage.parseBlockTags(utf8.decode(data));
+      if (raw.trim().isEmpty) {
+        SmartDialog.showToast('备份里没有标签黑名单');
+        return;
+      }
+      final total = GStorage.mergeBlockTags(raw);
+      SmartDialog.showToast('已合并标签，共 $total 个');
+    } catch (e) {
+      SmartDialog.showToast('恢复失败: $e');
+    }
+  }
 }
