@@ -972,6 +972,10 @@ abstract final class Pref {
         defaultValue: SuperChatType.valid.index,
       )];
 
+  /// 低于该金额（元）的 SC 不显示，0 表示不按金额屏蔽
+  static int get superChatMinPrice =>
+      _setting.get(SettingBoxKey.superChatMinPrice, defaultValue: 0);
+
   static double get fullScreenSCWidth => _setting.get(
     SettingBoxKey.fullScreenSCWidth,
     defaultValue: kFullScreenSCWidth,
@@ -1127,6 +1131,34 @@ abstract final class Pref {
 
   static set blockSearchTags(Set<String> tags) =>
       _setting.put(SettingBoxKey.blockSearchTags, tags.join('\n'));
+
+  /// 追加一个屏蔽标签（已存在则忽略，保留用户原本写法）
+  static void addBlockTag(String tag) {
+    final value = tag.trim();
+    if (value.isEmpty) return;
+    final words = blockSearchTagsRaw
+        .split(RegExp(r'[,，\n\r|、]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (words.any((e) => e.toLowerCase() == value.toLowerCase())) return;
+    words.add(value);
+    blockSearchTags = words.toSet();
+  }
+
+  /// 直播弹幕屏蔽关键词原始字符串（本地，换行或逗号分隔）
+  static String get liveBlockKeywordsRaw =>
+      _setting.get(SettingBoxKey.liveBlockKeywords, defaultValue: '') as String;
+
+  /// 直播弹幕要屏蔽的关键词（本地，不依赖账号）
+  static Set<String> get liveBlockKeywords => liveBlockKeywordsRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set liveBlockKeywords(Set<String> words) =>
+      _setting.put(SettingBoxKey.liveBlockKeywords, words.join('\n'));
 
   static bool get filterIntro =>
       _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
