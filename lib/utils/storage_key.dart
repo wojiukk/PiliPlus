@@ -166,9 +166,11 @@ abstract final class SettingBoxKey {
       blockReplyLevel = 'blockReplyLevel',
       blockFansMedal = 'blockFansMedal',
       blockSearchTags = 'blockSearchTags',
+      liveBlockKeywords = 'liveBlockKeywords',
       filterIntro = 'filterIntro';
 
   static const String superChatType = 'superChatType',
+      superChatMinPrice = 'superChatMinPrice',
       enableFullScreenSC = 'enableFullScreenSC',
       fullScreenSCOpacity = 'fullScreenSCOpacity',
       fullScreenSCScale = 'fullScreenSCScale',
