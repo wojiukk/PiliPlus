@@ -42,12 +42,14 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
     return seen.add(key);
   }
 
-  /// 标签黑名单：命中即隐藏，优先级高于搜索词本身
-  /// （即搜索词就是黑名单标签时，同样屏蔽）
+  /// 标签黑名单：标签里**包含**任一屏蔽词即隐藏（大小写不敏感）
+  /// 用包含匹配，「原神」能连带干掉「原神二创」「原神同人」，不用逐个列变体
   static bool _blockByTag(SearchVideoItemModel item, Set<String> blockTags) {
     if (blockTags.isEmpty) return false;
     if (item.tagList.isNotEmpty) {
-      return item.tagList.any((tag) => blockTags.contains(tag));
+      return item.tagList.any(
+        (tag) => blockTags.any((word) => tag.contains(word)),
+      );
     }
     // 接口没返回标签时退化为标题/简介匹配，保证老接口也能生效
     final text = '${item.title} ${item.desc ?? ''}'.toLowerCase();
