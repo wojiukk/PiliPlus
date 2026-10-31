@@ -286,6 +286,30 @@ List<SettingsModel> get playSettings => [
         .whenComplete(setState),
   ),
   NormalModel(
+    title: 'SC 金额屏蔽',
+    leading: const Icon(Icons.payments_outlined),
+    getSubtitle: () {
+      final price = Pref.superChatMinPrice;
+      return price <= 0 ? '点击设置（0 为不屏蔽）' : '低于 $price 元的 SC 不显示';
+    },
+    onTap: (context, setState) async {
+      final result = await showDialog<int>(
+        context: context,
+        builder: (context) => SelectDialog<int>(
+          title: '低于该金额的 SC 不显示',
+          value: Pref.superChatMinPrice,
+          values: const [0, 30, 50, 100, 500, 1000, 10000]
+              .map((e) => (e, e == 0 ? '不屏蔽' : '$e 元'))
+              .toList(),
+        ),
+      );
+      if (result != null) {
+        await GStorage.setting.put(SettingBoxKey.superChatMinPrice, result);
+        setState();
+      }
+    },
+  ),
+  NormalModel(
     title: '全屏 SuperChat 设置',
     subtitle: '全屏 SuperChat (醒目留言) 大小、不透明度、缩放设置',
     leading: const Icon(Icons.open_in_full),
