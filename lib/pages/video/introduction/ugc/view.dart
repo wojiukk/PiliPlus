@@ -41,6 +41,7 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -1038,10 +1039,46 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     parameters: {'keyword': tagName},
                   ),
                 },
-                onLongPress: Utils.copyText,
+                onLongPress: item.tagType == 'bgm' || item.tagType == 'topic'
+                    ? Utils.copyText
+                    : (text) => _onTagLongPress(text, item),
               ),
             )
             .toList(),
+      ),
+    );
+  }
+
+  /// 长按标签：复制 / 一键加入搜索标签黑名单
+  void _onTagLongPress(String text, VideoTagItem item) {
+    final tag = item.tagName;
+    if (tag == null || tag.isEmpty) {
+      Utils.copyText(text);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        constraints: Style.dialogFixedConstraints,
+        title: const Text('标签'),
+        content: Text(tag),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Get.back();
+              Utils.copyText(text);
+            },
+            child: const Text('复制'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              Pref.addBlockTag(tag);
+              SmartDialog.showToast('已屏蔽标签：$tag');
+            },
+            child: const Text('屏蔽此标签'),
+          ),
+        ],
       ),
     );
   }
