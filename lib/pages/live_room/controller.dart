@@ -438,7 +438,7 @@ class LiveRoomController extends GetxController {
   Future<void> getSuperChatMsg() async {
     final res = await LiveHttp.superChatMsg(roomId);
     if (res.dataOrNull?.list case final list? when list.isNotEmpty) {
-      superChatMsg.addAll(list);
+      superChatMsg.addAll(list.where((e) => !isBlockedSc(e)));
     }
   }
 
@@ -464,7 +464,18 @@ class LiveRoomController extends GetxController {
   }
 
   bool isBlocked(String text, Object uid) {
-    return _keywordList.any(text.contains) || _shieldUids.contains(uid);
+    // 本地黑名单 + 本地关键词不依赖账号，登录与否都生效
+    return GlobalData().blackMids.contains(uid) ||
+        Pref.liveBlockKeywords.any((word) => text.contains(word)) ||
+        _keywordList.any(text.contains) ||
+        _shieldUids.contains(uid);
+  }
+
+  /// SC 是否该隐藏：金额低于阈值，或命中弹幕关键词 / 屏蔽用户
+  bool isBlockedSc(SuperChatItem item) {
+    final minPrice = Pref.superChatMinPrice;
+    return (minPrice > 0 && item.price < minPrice) ||
+        isBlocked(item.message, item.uid);
   }
 
   void startLiveMsg() {
@@ -641,6 +652,7 @@ class LiveRoomController extends GetxController {
           break;
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
           final item = SuperChatItem.fromJson(obj['data'], roomId);
+          if (isBlockedSc(item)) break;
           superChatMsg.insert(0, item);
           addDm(item);
           if (!enableFSSC) return;
