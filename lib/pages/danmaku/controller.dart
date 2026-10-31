@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert' show ascii;
 import 'dart:io' show File;
 
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
@@ -8,8 +9,10 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/danmaku_utils.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:archive/archive.dart' show getCrc32;
 import 'package:path/path.dart' as path;
 
 class PlDanmakuController {
@@ -58,18 +61,34 @@ class PlDanmakuController {
     }
   }
 
+  /// 把本地黑名单的 mid 换算成弹幕用的 midHash（crc32 十六进制），
+  /// 和「弹幕屏蔽 - 用户」用的是同一套算法
+  Set<String> _buildBlacklistHashes() {
+    final mids = GlobalData().blackMids;
+    if (mids.isEmpty) return const <String>{};
+    return mids
+        .map((mid) => getCrc32(ascii.encode('$mid'), 0).toRadixString(16))
+        .toSet();
+  }
+
   void handleDanmaku(List<DanmakuElem> elems) {
     if (elems.isEmpty) return;
     final uniques = HashMap<String, DanmakuElem>();
 
     final filters = _plPlayerController.filters;
     final shouldFilter = filters.count != 0;
+    final blockHashes = _buildBlacklistHashes();
     for (final element in elems) {
       if (_isLogin) {
         element.isSelf = element.midHash == _plPlayerController.midHash;
       }
 
       if (!element.isSelf) {
+        // 本地黑名单用户的弹幕直接丢弃
+        if (blockHashes.contains(element.midHash)) {
+          continue;
+        }
+
         if (_mergeDanmaku) {
           final elem = uniques[element.content];
           if (elem == null) {
