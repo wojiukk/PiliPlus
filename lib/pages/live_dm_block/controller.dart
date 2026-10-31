@@ -1,106 +1,44 @@
-import 'package:PiliPlus/http/live.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/live/live_dm_block/shield_user_list.dart';
-import 'package:PiliPlus/pages/live_room/controller.dart';
+import 'package:PiliPlus/utils/global_data.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class LiveDmBlockController extends GetxController
     with GetSingleTickerProviderStateMixin {
-  final roomId = Get.parameters['roomId']!;
-  LiveRoomController? _controller;
+  late final TabController tabController;
+
+  /// 本地关键词（不依赖账号，换行或逗号分隔存储）
+  final RxList<String> keywordList = <String>[].obs;
 
   @override
   void onInit() {
     super.onInit();
-    final args = Get.arguments;
-    if (args is LiveRoomController) {
-      _controller = args;
-    }
     tabController = TabController(length: 2, vsync: this);
-    queryData();
+    keywordList.addAll(Pref.liveBlockKeywords);
   }
 
-  late final TabController tabController;
+  /// 直播弹幕同时按本地黑名单过滤，这里只用于展示数量
+  int get blacklistCount => GlobalData().blackMids.length;
 
-  bool _isLoaded = false;
-  final RxList<String> keywordList = <String>[].obs;
-  final RxList<ShieldUserList> shieldUserList = <ShieldUserList>[].obs;
-
-  Future<void> queryData() async {
-    final res = await LiveHttp.getLiveInfoByUser(roomId);
-    if (res case Success(:final response)) {
-      _isLoaded = true;
-      if (response == null) return;
-      if (response.keywordList case final list? when list.isNotEmpty) {
-        keywordList.addAll(list);
-      }
-      if (response.shieldUserList case final list? when list.isNotEmpty) {
-        shieldUserList.addAll(list);
-      }
-    } else {
-      res.toast();
+  void addKeyword(String value) {
+    final word = value.trim();
+    if (word.isEmpty) return;
+    final words = Pref.liveBlockKeywords..add(word);
+    Pref.liveBlockKeywords = words;
+    if (!keywordList.contains(word)) {
+      keywordList.insert(0, word);
     }
   }
 
-  void _updateLiveRoomRules() {
-    if (_isLoaded && _controller != null) {
-      _controller!.updateBlockRules(
-        keywordList.rawValue,
-        shieldUserList.map((e) => e.uid).toSet(),
-      );
-    }
-    _controller = null;
-  }
-
-  Future<void> addShieldKeyword(bool isKeyword, String value) async {
-    if (isKeyword) {
-      final res = await LiveHttp.addShieldKeyword(keyword: value);
-      if (res.isSuccess) {
-        keywordList.insert(0, value);
-      } else {
-        res.toast();
-      }
-    } else {
-      final res = await LiveHttp.liveShieldUser(
-        uid: value,
-        roomid: roomId,
-        type: 1,
-      );
-      if (res case Success(:final response)) {
-        shieldUserList.insert(0, response);
-      } else {
-        res.toast();
-      }
-    }
-  }
-
-  Future<void> onRemove(int index, Object item) async {
-    assert(item is ShieldUserList || item is String);
-    if (item is ShieldUserList) {
-      final res = await LiveHttp.liveShieldUser(
-        uid: item.uid,
-        roomid: roomId,
-        type: 0,
-      );
-      if (res.isSuccess) {
-        shieldUserList.removeAt(index);
-      } else {
-        res.toast();
-      }
-    } else {
-      final res = await LiveHttp.delShieldKeyword(keyword: item as String);
-      if (res.isSuccess) {
-        keywordList.removeAt(index);
-      } else {
-        res.toast();
-      }
-    }
+  void removeKeyword(int index) {
+    final word = keywordList[index];
+    final words = Pref.liveBlockKeywords..remove(word);
+    Pref.liveBlockKeywords = words;
+    keywordList.removeAt(index);
   }
 
   @override
   void onClose() {
-    _updateLiveRoomRules();
     tabController.dispose();
     super.onClose();
   }
