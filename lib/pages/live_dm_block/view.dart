@@ -3,12 +3,10 @@ import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
-import 'package:PiliPlus/models_new/live/live_dm_block/shield_user_list.dart';
 import 'package:PiliPlus/pages/live_dm_block/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -41,12 +39,8 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
       hitTestBehavior: .translucent,
       controller: _controller.tabController,
       children: [
-        KeepAliveWrapper(
-          child: Obx(() => _buildKeyword(_controller.keywordList)),
-        ),
-        KeepAliveWrapper(
-          child: Obx(() => _buildKeyword(_controller.shieldUserList)),
-        ),
+        KeepAliveWrapper(child: Obx(_buildKeyword)),
+        KeepAliveWrapper(child: _buildUser()),
       ],
     );
 
@@ -67,15 +61,16 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
           bottom: kFloatingActionButtonMargin + padding.bottom,
         ),
         child: FloatingActionButton(
-          tooltip: '添加',
-          onPressed: _addShieldKeyword,
+          tooltip: '添加关键词',
+          onPressed: _addKeyword,
           child: const Icon(Icons.add),
         ),
       ),
     );
   }
 
-  Widget _buildKeyword(List list) {
+  Widget _buildKeyword() {
+    final list = _controller.keywordList;
     if (list.isEmpty) {
       return scrollableError;
     }
@@ -92,11 +87,11 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
         children: list.mapIndexed(
           (i, e) {
             return SearchText(
-              text: e is ShieldUserList ? e.uname : e as String,
+              text: e,
               onTap: (value) => showConfirmDialog(
                 context: context,
-                title: const Text('确定删除该规则？'),
-                onConfirm: () => _controller.onRemove(i, e),
+                title: const Text('确定删除该关键词？'),
+                onConfirm: () => _controller.removeKeyword(i),
               ),
             );
           },
@@ -105,25 +100,48 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
     );
   }
 
-  void _addShieldKeyword() {
-    bool isKeyword = _controller.tabController.index == 0;
+  Widget _buildUser() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        top: 24,
+        left: 24,
+        right: 24,
+        bottom: padding.bottom + 100,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '直播弹幕按本地黑名单过滤',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '当前本地黑名单：${_controller.blacklistCount} 人',
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '名单在「设置 → 黑名单」里管理；黑名单支持 WebDAV 同步，多个账号、多台设备共用同一份。',
+            style: TextStyle(fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addKeyword() {
     String value = '';
     showConfirmDialog(
       context: context,
-      title: Text('${isKeyword ? '关键词' : '用户'}屏蔽'),
+      title: const Text('添加屏蔽关键词'),
       content: TextFormField(
         autofocus: true,
-        initialValue: value,
         onChanged: (val) => value = val,
-        decoration: isKeyword ? null : const InputDecoration(hintText: 'UID'),
-        keyboardType: isKeyword ? null : TextInputType.number,
-        inputFormatters: isKeyword
-            ? null
-            : [FilteringTextInputFormatter.digitsOnly],
       ),
       onConfirm: () {
         if (value.isNotEmpty) {
-          _controller.addShieldKeyword(isKeyword, value);
+          _controller.addKeyword(value);
         }
       },
     );
