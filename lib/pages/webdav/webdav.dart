@@ -287,7 +287,8 @@ class WebDav {
             DynamicsDataModel.banWordForDyn.pattern.isNotEmpty;
       } catch (_) {}
       SmartDialog.showToast(
-        '已合并过滤规则：关键词更新 ${res.patterns} 组 / 弹幕词 ${res.liveWords} 个 / '
+        '已合并过滤规则：关键词更新 ${res.patterns} 组 / '
+        '直播词 ${res.liveWords} 个 / 弹幕词 ${res.danmakuWords} 个 / '
         '标签 ${res.tags} 个 / SC 阈值 ${res.scPrice} 元',
       );
     } catch (e) {
