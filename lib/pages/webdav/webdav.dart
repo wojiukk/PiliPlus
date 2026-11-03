@@ -221,6 +221,55 @@ class WebDav {
     }
   }
 
+  /// 分区白名单单独同步：固定文件名，三平台通用
+  /// 恢复是整份覆盖（白名单做并集只会越并越宽松）
+  static const String _allowZonesFileName = 'piliplus_allow_zones.json';
+
+  Future<void> backupAllowZones() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('备份失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_allowZonesFileName';
+      try {
+        await client.remove(path);
+      } catch (_) {}
+      await client.write(path, utf8.encode(GStorage.exportAllowZones()));
+      SmartDialog.showToast('已备份分区白名单 ${Pref.allowZones.length} 个');
+    } catch (e) {
+      SmartDialog.showToast('备份失败: $e');
+    }
+  }
+
+  Future<void> restoreAllowZones() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('恢复失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_allowZonesFileName';
+      final data = await client.read(path);
+      final raw = GStorage.parseAllowZones(utf8.decode(data));
+      if (raw.trim().isEmpty) {
+        SmartDialog.showToast('备份里没有分区白名单');
+        return;
+      }
+      final total = GStorage.applyAllowZones(raw);
+      SmartDialog.showToast('已恢复分区白名单，共 $total 个（覆盖本地）');
+    } catch (e) {
+      SmartDialog.showToast('恢复失败: $e');
+    }
+  }
+
   /// 过滤规则单独同步：评论/标题/分区/动态关键词、直播弹幕词、SC 阈值、标签黑名单
   /// 只做并集合并，完全不碰播放设置与界面设置
   static const String _filterRulesFileName = 'piliplus_filter_rules.json';
