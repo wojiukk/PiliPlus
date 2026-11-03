@@ -414,10 +414,10 @@ abstract final class VideoHttp {
     if (res.data['code'] == 0) {
       final items = (res.data['data'] as List?)
           ?.whereNotBlocked((e) => e['owner']?['mid'])
-          // 分区白名单（顺带收集分区名）
+          // 分区规则（黑名单 + 白名单，顺带收集分区名）
           .where((e) {
             ZoneFilter.note(e['tname']);
-            return ZoneFilter.allow(e['tname']);
+            return allowZone(e['tname']);
           })
           .map((i) => HotVideoItemModel.fromJson(i));
       final list = RecommendFilter.applyFilterToRelatedVideos
