@@ -2,7 +2,11 @@ import 'dart:convert';
 
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
+import 'package:PiliPlus/grpc/reply.dart';
+import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
+import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -212,6 +216,80 @@ class WebDav {
       }
       final total = GStorage.mergeBlockTags(raw);
       SmartDialog.showToast('已合并标签，共 $total 个');
+    } catch (e) {
+      SmartDialog.showToast('恢复失败: $e');
+    }
+  }
+
+  /// 过滤规则单独同步：评论/标题/分区/动态关键词、直播弹幕词、SC 阈值、标签黑名单
+  /// 只做并集合并，完全不碰播放设置与界面设置
+  static const String _filterRulesFileName = 'piliplus_filter_rules.json';
+
+  Future<void> backupFilterRules() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('备份失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_filterRulesFileName';
+      try {
+        await client.remove(path);
+      } catch (_) {}
+      await client.write(path, utf8.encode(GStorage.exportFilterRules()));
+      SmartDialog.showToast('已备份过滤规则');
+    } catch (e) {
+      SmartDialog.showToast('备份失败: $e');
+    }
+  }
+
+  Future<void> restoreFilterRules() async {
+    final config = _getConfig();
+    final webdav.Client client;
+    try {
+      client = await _connect(config);
+    } catch (e) {
+      SmartDialog.showToast('恢复失败，请检查配置: $e');
+      return;
+    }
+    try {
+      final path = '${config.directory}/$_filterRulesFileName';
+      final data = await client.read(path);
+      final rules = GStorage.parseFilterRules(utf8.decode(data));
+      if (rules.isEmpty) {
+        SmartDialog.showToast('备份里没有过滤规则');
+        return;
+      }
+      final res = GStorage.mergeFilterRules(rules);
+      // 关键词是启动时读进静态字段的，这里就地刷新，省一次重启
+      try {
+        ReplyGrpc.replyRegExp = RegExp(
+          Pref.banWordForReply,
+          caseSensitive: false,
+        );
+        ReplyGrpc.enableFilter = ReplyGrpc.replyRegExp.pattern.isNotEmpty;
+        RecommendFilter.rcmdRegExp = RegExp(
+          Pref.banWordForRecommend,
+          caseSensitive: false,
+        );
+        RecommendFilter.enableFilter =
+            RecommendFilter.rcmdRegExp.pattern.isNotEmpty;
+        VideoHttp.zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
+        VideoHttp.enableFilter = VideoHttp.zoneRegExp.pattern.isNotEmpty;
+        DynamicsDataModel.banWordForDyn = RegExp(
+          Pref.banWordForDyn,
+          caseSensitive: false,
+        );
+        DynamicsDataModel.enableFilter =
+            DynamicsDataModel.banWordForDyn.pattern.isNotEmpty;
+      } catch (_) {}
+      SmartDialog.showToast(
+        '已合并过滤规则：关键词更新 ${res.patterns} 组 / 弹幕词 ${res.liveWords} 个 / '
+        '标签 ${res.tags} 个 / SC 阈值 ${res.scPrice} 元',
+      );
     } catch (e) {
       SmartDialog.showToast('恢复失败: $e');
     }
