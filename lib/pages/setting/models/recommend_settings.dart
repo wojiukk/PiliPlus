@@ -7,6 +7,7 @@ import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/zone_filter.dart';
+import 'package:PiliPlus/utils/zone_groups.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -189,9 +190,26 @@ class _ZonePickerDialogState extends State<_ZonePickerDialog> {
     );
   }
 
+  bool _groupOn(String group) {
+    final names = zoneGroupNames(group);
+    return names.isNotEmpty && names.every(_selected.contains);
+  }
+
+  void _toggleGroup(String group, bool on) {
+    final names = zoneGroupNames(group);
+    if (on) {
+      _selected.addAll(names);
+    } else {
+      _selected.removeAll(names);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: theme.colorScheme.primary,
+    );
     return AlertDialog(
       constraints: Style.dialogFixedConstraints,
       title: const Text('只看这些分区'),
@@ -204,13 +222,33 @@ class _ZonePickerDialogState extends State<_ZonePickerDialog> {
             children: [
               Text(
                 '勾选后，推荐里只保留这些分区，其他全部隐藏；一个都不勾 = 不启用。\n'
-                '分区名按「精确匹配」，选项来自你刷到过的真实分区，刷得越多越全。\n'
+                '按大类勾选 = 该大类下所有子分区一起放行。\n'
                 '接口没返回分区名的内容仍会保留（避免整页清空）。',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
+              Text('按大类选', style: labelStyle),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final group in zoneGroups.keys)
+                    FilterChip(
+                      label: Text(group),
+                      selected: _groupOn(group),
+                      onSelected: (v) => setState(() => _toggleGroup(group, v)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text('具体分区（刷到过的，可单独勾）', style: labelStyle),
+              const SizedBox(height: 6),
               if (_available.isEmpty)
-                const Text('还没收集到分区，先去首页刷几屏再回来。')
+                Text(
+                  '还没收集到具体分区，先回首页刷几屏；上面的大类可以先勾。',
+                  style: theme.textTheme.bodySmall,
+                )
               else
                 Wrap(
                   spacing: 8,
