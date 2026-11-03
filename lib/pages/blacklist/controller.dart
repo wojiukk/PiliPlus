@@ -63,6 +63,11 @@ class BlackListController
   Future<LoadingState<BlackListData>> customGetData() =>
       BlackHttp.blackList(pn: page);
 
+  /// 管理页里的增删/导入立刻落盘，并让弹幕哈希等缓存失效
+  void persist() {
+    Pref.blackMids = blackMids;
+  }
+
   @override
   void onClose() {
     super.onClose();
