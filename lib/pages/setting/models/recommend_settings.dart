@@ -122,7 +122,7 @@ List<SettingsModel> get recommendSettings => [
   SwitchModel(
     title: '按 UID 位数屏蔽（16 位及以上）',
     subtitle:
-        '作用域: 评论、首页推荐、热门/排行、相关视频、搜索结果、直播弹幕\n'
+        '作用域: 评论、首页推荐、热门/排行、相关视频、搜索结果、动态、直播弹幕\n'
         '16 位及以上属于「长 UID」号，多为 2023 年后注册；只是近似，不等于注册时间\n'
         '纯本地判断，默认关闭',
     leading: const Icon(Icons.block),
