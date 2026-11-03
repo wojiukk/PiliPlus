@@ -465,7 +465,8 @@ class LiveRoomController extends GetxController {
 
   bool isBlocked(String text, Object uid) {
     // 本地黑名单 + 本地关键词不依赖账号，登录与否都生效
-    return GlobalData().blackMids.contains(uid) ||
+    // 16 位ID账号（2023 年后注册）由开关控制
+    return GlobalData().shouldBlockUid(uid) ||
         Pref.liveBlockKeywords.any((word) => text.contains(word)) ||
         _keywordList.any(text.contains) ||
         _shieldUids.contains(uid);
