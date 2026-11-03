@@ -11,6 +11,7 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/danmaku_utils.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:path/path.dart' as path;
@@ -78,6 +79,11 @@ class PlDanmakuController {
     final filters = _plPlayerController.filters;
     final shouldFilter = filters.count != 0;
     final blockHashes = _buildBlacklistHashes();
+    // 本地关键词：纯文本匹配（自动转义），不依赖登录
+    final blockWords = Pref.danmakuBlockWords;
+    final localWordExp = blockWords.isEmpty
+        ? null
+        : RegExp(blockWords.map(RegExp.escape).join('|'), caseSensitive: false);
     for (final element in elems) {
       if (_isLogin) {
         element.isSelf = element.midHash == _plPlayerController.midHash;
@@ -86,6 +92,11 @@ class PlDanmakuController {
       if (!element.isSelf) {
         // 本地黑名单用户的弹幕直接丢弃
         if (blockHashes.contains(element.midHash)) {
+          continue;
+        }
+
+        // 本地关键词
+        if (localWordExp != null && localWordExp.hasMatch(element.content)) {
           continue;
         }
 
