@@ -304,11 +304,10 @@ class VideoPopupMenu extends StatelessWidget {
                                   reSrc: 11,
                                 );
                                 if (res.isSuccess) {
-                                  onRemove?.call();
-                                  // 服务端拉黑同样会写入本地黑名单，列表清理走同一入口
-                                  _removeUpFromHomeList(
-                                    videoItem.owner.mid,
-                                  );
+                                  // 等网络这段时间列表可能已经变了，
+                                  // 回调里捕获的旧索引会删错卡，这里只按 UID 清理
+                                  _removeUpFromHomeList(videoItem.owner.mid);
+                                  SmartDialog.showToast('已拉黑');
                                 } else {
                                   res.toast();
                                 }
