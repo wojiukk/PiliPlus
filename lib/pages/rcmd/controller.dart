@@ -1,6 +1,7 @@
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 
 class RcmdController extends CommonListController {
@@ -10,8 +11,10 @@ class RcmdController extends CommonListController {
   int? lastRefreshAt;
   late bool savedRcmdTip = Pref.savedRcmdTip;
 
-  /// 过滤后不足这个数就再拉一页补上（接口一页 20 条）
-  static const int _minCount = 20;
+  /// 一屏能放几条差别很大：桌面 7 列 × 4 行 ≈ 28，笔记本/小窗 ≈ 24，手机 ≈ 6。
+  /// 目标取「大约 1.5~3 屏」：桌面 36，手机 18。
+  /// 只要超过一屏高度，页面就能滚动，滚到底才会正常触发加载下一页。
+  static int get _minCount => PlatformUtils.isMobile ? 18 : 36;
 
   /// 最多补几页，防止过滤太狠时无限请求
   static const int _maxExtra = 3;
