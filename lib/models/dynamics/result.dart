@@ -7,6 +7,7 @@ import 'package:PiliPlus/models/model_avatar.dart';
 import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models_new/live/live_feed_index/watched_show.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/parse_bool.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
 import 'package:PiliPlus/utils/parse_string.dart';
@@ -80,6 +81,11 @@ class DynamicsDataModel {
         }
         if (filterBan &&
             tempBannedList!.contains(item.modules.moduleAuthor?.mid)) {
+          continue;
+        }
+        // 本地黑名单 / 16 位ID；用户主页（up）不处理，避免把本人动态挡掉
+        if (type != DynamicsTabType.up &&
+            GlobalData().shouldBlockUid(item.modules.moduleAuthor?.mid)) {
           continue;
         }
         items!.add(item);
