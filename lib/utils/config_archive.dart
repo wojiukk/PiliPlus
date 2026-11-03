@@ -14,6 +14,7 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/font_utils.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
+import 'package:PiliPlus/utils/runtime_refresh.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -246,6 +247,8 @@ abstract final class ConfigArchive {
       throw ArgumentError('设置数据格式不正确');
     }
     await GStorage.importAllJsonSettings(data);
+    // 整包导入后刷新内存里的过滤状态
+    refreshFilterState();
   }
 
   static void _importBlacklist(List<dynamic> list) {
