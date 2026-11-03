@@ -9,6 +9,7 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/zone_filter.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;
 
@@ -264,6 +265,7 @@ class WebDav {
         return;
       }
       final total = GStorage.applyAllowZones(raw);
+      ZoneFilter.reload();
       SmartDialog.showToast('已恢复分区白名单，共 $total 个（覆盖本地）');
     } catch (e) {
       SmartDialog.showToast('恢复失败: $e');
@@ -312,7 +314,12 @@ class WebDav {
         SmartDialog.showToast('备份里没有过滤规则');
         return;
       }
+      // 过滤规则里的白名单只在"本地为空"时才会被导入，这里记一下结果
+      final hadZones = Pref.allowZonesRaw.trim().isNotEmpty;
       final res = GStorage.mergeFilterRules(rules);
+      final importedZones = !hadZones && Pref.allowZonesRaw.trim().isNotEmpty;
+      // 白名单有缓存，导入后必须失效，否则要等重启才生效
+      ZoneFilter.reload();
       // 关键词是启动时读进静态字段的，这里就地刷新，省一次重启
       try {
         ReplyGrpc.replyRegExp = RegExp(
@@ -344,7 +351,8 @@ class WebDav {
       SmartDialog.showToast(
         '已合并过滤规则：关键词更新 ${res.patterns} 组 / '
         '直播词 ${res.liveWords} 个 / 弹幕词 ${res.danmakuWords} 个 / '
-        '标签 ${res.tags} 个 / SC 阈值 ${res.scPrice} 元',
+        '标签 ${res.tags} 个 / SC 阈值 ${res.scPrice} 元'
+        '${importedZones ? '（已导入分区白名单 ${Pref.allowZones.length} 个）' : ''}',
       );
     } catch (e) {
       SmartDialog.showToast('恢复失败: $e');
