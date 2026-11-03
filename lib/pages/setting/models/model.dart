@@ -276,6 +276,9 @@ SettingsModel getBlockTagsModel({
   required String title,
   required String key,
   String? scope,
+  String? hint,
+  String unit = '个标签',
+  IconData? icon,
 }) {
   String raw = GStorage.setting.get(key, defaultValue: '');
   int countOf(String value) => value
@@ -284,11 +287,11 @@ SettingsModel getBlockTagsModel({
       .where((e) => e.isNotEmpty)
       .length;
   return NormalModel(
-    leading: const Icon(Icons.label_off_outlined),
+    leading: Icon(icon ?? Icons.label_off_outlined),
     title: title,
     getSubtitle: () {
       final count = countOf(raw);
-      final subtitle = count == 0 ? '点击添加' : '已屏蔽 $count 个标签';
+      final subtitle = count == 0 ? '点击添加' : '已屏蔽 $count $unit';
       if (scope != null) {
         return '作用域: $scope\n$subtitle';
       }
@@ -305,9 +308,10 @@ SettingsModel getBlockTagsModel({
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '一行一个标签，也可用逗号分隔，支持整段粘贴批量添加。\n'
-                '命中的视频在搜索结果里直接隐藏，搜索词本身是黑名单标签时同样屏蔽。',
+              Text(
+                hint ??
+                    '一行一个标签，也可用逗号分隔，支持整段粘贴批量添加。\n'
+                        '命中的视频在搜索结果里直接隐藏，搜索词本身是黑名单标签时同样屏蔽。',
               ),
               const SizedBox(height: 12),
               TextFormField(
