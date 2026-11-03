@@ -324,16 +324,25 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     if (loadingState.value case Success(:final response)) {
       final data = response;
       if (data == null) return;
-      final before = data.length;
+      var removed = 0;
       for (final root in data) {
+        final subBefore = root.replies.length;
         root.replies.removeWhere((e) => e.mid == mid);
-      }
-      data.removeWhere((e) => e.mid == mid);
-      final removed = before - data.length;
-      if (removed > 0) {
-        if (count.value > 0) {
-          count.value -= removed;
+        final subRemoved = subBefore - root.replies.length;
+        if (subRemoved > 0) {
+          // 子回复数要跟着减，否则"共 N 条回复"和实际展开数对不上
+          final rest = root.count.toInt() - subRemoved;
+          root.count = Int64(rest < 0 ? 0 : rest);
+          removed += subRemoved;
         }
+      }
+      final topBefore = data.length;
+      data.removeWhere((e) => e.mid == mid);
+      removed += topBefore - data.length;
+      // 只删到楼中楼时 removed 也可能 > 0，必须一起刷新
+      if (removed > 0) {
+        final rest = count.value - removed;
+        count.value = rest < 0 ? 0 : rest;
         loadingState.refresh();
       }
     }
