@@ -92,6 +92,7 @@ abstract final class SettingBoxKey {
       horizontalPreview = 'horizontalPreview',
       banWordForReply = 'banWordForReply',
       banWordForZone = 'banWordForZone',
+      banUpNames = 'banUpNames',
       savedRcmdTip = 'savedRcmdTip',
       openInBrowser = 'openInBrowser',
       refreshDisplacement = 'refreshDisplacement',
