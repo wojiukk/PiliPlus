@@ -120,11 +120,11 @@ List<SettingsModel> get recommendSettings => [
     onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
   ),
   SwitchModel(
-    title: '屏蔽16位ID账号（2023年后注册）',
+    title: '按 UID 位数屏蔽（16 位及以上）',
     subtitle:
         '作用域: 评论、首页推荐、热门/排行、相关视频、搜索结果、直播弹幕\n'
-        'UID 位数 ≥ 16 即视为新注册账号，纯本地判断、不额外请求\n'
-        '注意: 2023 年后注册的真人同样会被隐藏，默认关闭',
+        '16 位及以上属于「长 UID」号，多为 2023 年后注册；只是近似，不等于注册时间\n'
+        '纯本地判断，默认关闭',
     leading: const Icon(Icons.block),
     setKey: SettingBoxKey.blockSnowflakeUid,
     defaultVal: false,
@@ -182,6 +182,7 @@ class _ZonePickerDialogState extends State<_ZonePickerDialog> {
         .where((e) => e.isNotEmpty);
     _selected.addAll(extra);
     Pref.allowZones = _selected;
+    ZoneFilter.reload();
     Get.back();
     SmartDialog.showToast(
       _selected.isEmpty ? '已关闭白名单' : '已保存 ${_selected.length} 个分区',
