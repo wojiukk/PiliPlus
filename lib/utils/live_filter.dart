@@ -9,15 +9,13 @@ abstract final class LiveFilter {
   static bool shouldBlock(CardLiveItem? item) {
     if (item == null) return false;
     if (GlobalData().shouldBlockUid(item.uid)) return true;
+    // 主播名字关键词（与视频侧共用一份词表）
+    if (RecommendFilter.filterUpName(item.uname)) return true;
 
     if (RecommendFilter.enableFilter) {
       final exp = RecommendFilter.rcmdRegExp;
       final title = item.title;
       if (title != null && title.isNotEmpty && exp.hasMatch(title)) {
-        return true;
-      }
-      final uname = item.uname;
-      if (uname != null && uname.isNotEmpty && exp.hasMatch(uname)) {
         return true;
       }
     }
