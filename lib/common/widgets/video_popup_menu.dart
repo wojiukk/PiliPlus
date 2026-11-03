@@ -5,6 +5,7 @@ import 'package:PiliPlus/models/home/rcmd/result.dart';
 import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
+import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/video/ai_conclusion/view.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
@@ -278,7 +279,14 @@ class VideoPopupMenu extends StatelessWidget {
                               onPressed: () {
                                 Get.back();
                                 Pref.setBlackMid(videoItem.owner.mid!);
+                                // 顺序不能反：先按索引移除当前这张卡，
+                                // 再按 UID 清其余卡片，否则 onRemove 会用过期索引删错卡
                                 onRemove?.call();
+                                if (Get.isRegistered<RcmdController>()) {
+                                  Get.find<RcmdController>().removeUpFromList(
+                                    videoItem.owner.mid,
+                                  );
+                                }
                               },
                               child: const Text('本地屏蔽'),
                             ),
