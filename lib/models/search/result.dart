@@ -94,7 +94,7 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
           case 'bili_user':
             if (item['data'] case List users when users.isNotEmpty) {
               for (final e in users) {
-                if (!GlobalData().blackMids.contains(e['mid'])) {
+                if (!GlobalData().shouldBlockUid(e['mid'])) {
                   (searchUser ??= <SearchUser>[]).add(SearchUser.fromJson(e));
                 }
               }
