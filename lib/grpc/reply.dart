@@ -218,7 +218,12 @@ abstract final class ReplyGrpc {
       ),
       DetailListReply.fromBuffer,
     );
-    return res..dataOrNull?.root.replies.removeWhere(needRemoveGrpc);
+    // 详情列表也能拿到 UP mid，一并传给过滤器，保证 UP 评论豁免一致
+    final upMid = res.dataOrNull?.subjectControl.upMid;
+    return res
+      ..dataOrNull?.root.replies.removeWhere(
+        (e) => needRemoveGrpc(e, upMid: upMid),
+      );
   }
 
   static Future<LoadingState<DialogListReply>> dialogList({
@@ -239,7 +244,12 @@ abstract final class ReplyGrpc {
       ),
       DialogListReply.fromBuffer,
     );
-    return res..dataOrNull?.replies.removeWhere(needRemoveGrpc);
+    // 对话列表同理，传 UP mid 才会豁免 UP 本人的回复
+    final upMid = res.dataOrNull?.subjectControl.upMid;
+    return res
+      ..dataOrNull?.replies.removeWhere(
+        (e) => needRemoveGrpc(e, upMid: upMid),
+      );
   }
 
   static Future<LoadingState<SearchItemReply>> searchItem({
