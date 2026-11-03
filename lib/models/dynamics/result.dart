@@ -88,6 +88,14 @@ class DynamicsDataModel {
             GlobalData().shouldBlockUid(item.modules.moduleAuthor?.mid)) {
           continue;
         }
+        // 转发：原作者被屏蔽时，转发内容也不该出现
+        if (type != DynamicsTabType.up &&
+            item.orig != null &&
+            GlobalData().shouldBlockUid(
+              item.orig!.modules.moduleAuthor?.mid,
+            )) {
+          continue;
+        }
         items!.add(item);
       }
       // filtered all
