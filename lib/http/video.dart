@@ -83,8 +83,9 @@ abstract final class VideoHttp {
 
   static bool _filterWebRcmd(dynamic i) {
     if (i['goto'] != 'av') return true;
+    // 拉黑用户 / 16 位ID账号
     if (i['owner'] != null &&
-        GlobalData().blackMids.contains(i['owner']['mid'])) {
+        GlobalData().shouldBlockUid(i['owner']['mid'])) {
       return true;
     }
     return false;
@@ -98,7 +99,7 @@ abstract final class VideoHttp {
       return true;
     }
     if (i['args'] != null &&
-        GlobalData().blackMids.contains(i['args']['up_id'])) {
+        GlobalData().shouldBlockUid(i['args']['up_id'])) {
       return true;
     }
     if (enableFilter &&
@@ -178,7 +179,7 @@ abstract final class VideoHttp {
   }
 
   static bool _filterHotAndRank(dynamic i) {
-    if (GlobalData().blackMids.contains(i['owner']['mid'])) return false;
+    if (GlobalData().shouldBlockUid(i['owner']['mid'])) return false;
     if (RecommendFilter.filterTitle(i['title'])) return false;
     if (RecommendFilter.filterLikeRatio(i['stat']['like'], i['stat']['view'])) {
       return false;
