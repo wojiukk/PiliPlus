@@ -196,6 +196,8 @@ abstract final class VideoHttp {
     ZoneFilter.note(i['tname']);
     if (GlobalData().shouldBlockUid(i['owner']['mid'])) return false;
     if (RecommendFilter.filterTitle(i['title'])) return false;
+    // UP 名字关键词（热门/排行没有走 filterAll，这里补一下）
+    if (RecommendFilter.filterUpName(i['owner']?['name'])) return false;
     if (RecommendFilter.filterLikeRatio(i['stat']['like'], i['stat']['view'])) {
       return false;
     }
