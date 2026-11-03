@@ -6,6 +6,16 @@ import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/zone_filter.dart';
 
+/// 单条正则单独兜底：坏一条不影响其它条，避免"规则半新半旧"
+RegExp _buildRegExp(String pattern, RegExp fallback) {
+  if (pattern.isEmpty) return RegExp('');
+  try {
+    return RegExp(pattern, caseSensitive: false);
+  } catch (_) {
+    return fallback;
+  }
+}
+
 /// 整包恢复设置后，把内存里的静态过滤状态重新读一遍。
 /// 这些字段都是启动时从 Hive 读进 static 的，不刷新的话要重启才生效。
 void refreshFilterState() {
@@ -26,27 +36,33 @@ void refreshFilterState() {
   ReplyGrpc.blockReplyLevel = Pref.blockReplyLevel;
   ReplyGrpc.blockFansMedals = Pref.blockFansMedals;
 
-  try {
-    RecommendFilter.rcmdRegExp = RegExp(
-      Pref.banWordForRecommend,
-      caseSensitive: false,
-    );
-    RecommendFilter.enableFilter =
-        RecommendFilter.rcmdRegExp.pattern.isNotEmpty;
-    RecommendFilter.upNameRegExp = RegExp(Pref.banUpNames, caseSensitive: false);
-    RecommendFilter.enableUpName =
-        RecommendFilter.upNameRegExp.pattern.isNotEmpty;
-    ReplyGrpc.replyRegExp = RegExp(Pref.banWordForReply, caseSensitive: false);
-    ReplyGrpc.enableFilter = ReplyGrpc.replyRegExp.pattern.isNotEmpty;
-    VideoHttp.zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
-    VideoHttp.enableFilter = VideoHttp.zoneRegExp.pattern.isNotEmpty;
-    DynamicsDataModel.banWordForDyn = RegExp(
-      Pref.banWordForDyn,
-      caseSensitive: false,
-    );
-    DynamicsDataModel.enableFilter =
-        DynamicsDataModel.banWordForDyn.pattern.isNotEmpty;
-  } catch (_) {}
+  RecommendFilter.rcmdRegExp = _buildRegExp(
+    Pref.banWordForRecommend,
+    RecommendFilter.rcmdRegExp,
+  );
+  RecommendFilter.enableFilter = RecommendFilter.rcmdRegExp.pattern.isNotEmpty;
+  RecommendFilter.upNameRegExp = _buildRegExp(
+    Pref.banUpNames,
+    RecommendFilter.upNameRegExp,
+  );
+  RecommendFilter.enableUpName =
+      RecommendFilter.upNameRegExp.pattern.isNotEmpty;
+  ReplyGrpc.replyRegExp = _buildRegExp(
+    Pref.banWordForReply,
+    ReplyGrpc.replyRegExp,
+  );
+  ReplyGrpc.enableFilter = ReplyGrpc.replyRegExp.pattern.isNotEmpty;
+  VideoHttp.zoneRegExp = _buildRegExp(
+    Pref.banWordForZone,
+    VideoHttp.zoneRegExp,
+  );
+  VideoHttp.enableFilter = VideoHttp.zoneRegExp.pattern.isNotEmpty;
+  DynamicsDataModel.banWordForDyn = _buildRegExp(
+    Pref.banWordForDyn,
+    DynamicsDataModel.banWordForDyn,
+  );
+  DynamicsDataModel.enableFilter =
+      DynamicsDataModel.banWordForDyn.pattern.isNotEmpty;
 
   ZoneFilter.reload();
 }
