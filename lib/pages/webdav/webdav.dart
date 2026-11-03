@@ -7,6 +7,7 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
+import 'package:PiliPlus/utils/runtime_refresh.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/zone_filter.dart';
@@ -117,7 +118,9 @@ class WebDav {
       final path = '${config.directory}/${_getFileName()}';
       final data = await client.read(path);
       await GStorage.importAllSettings(utf8.decode(data));
-      SmartDialog.showToast('恢复成功');
+      // 整包恢复会改掉关键词/黑名单/白名单，内存里的静态状态要重读一遍
+      refreshFilterState();
+      SmartDialog.showToast('恢复成功，过滤规则已即时生效');
     } catch (e) {
       SmartDialog.showToast('恢复失败: $e');
     }
@@ -323,36 +326,8 @@ class WebDav {
       final hadZones = Pref.allowZonesRaw.trim().isNotEmpty;
       final res = GStorage.mergeFilterRules(rules);
       final importedZones = !hadZones && Pref.allowZonesRaw.trim().isNotEmpty;
-      // 白名单有缓存，导入后必须失效，否则要等重启才生效
-      ZoneFilter.reload();
-      // 关键词是启动时读进静态字段的，这里就地刷新，省一次重启
-      try {
-        ReplyGrpc.replyRegExp = RegExp(
-          Pref.banWordForReply,
-          caseSensitive: false,
-        );
-        ReplyGrpc.enableFilter = ReplyGrpc.replyRegExp.pattern.isNotEmpty;
-        RecommendFilter.rcmdRegExp = RegExp(
-          Pref.banWordForRecommend,
-          caseSensitive: false,
-        );
-        RecommendFilter.enableFilter =
-            RecommendFilter.rcmdRegExp.pattern.isNotEmpty;
-        VideoHttp.zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
-        VideoHttp.enableFilter = VideoHttp.zoneRegExp.pattern.isNotEmpty;
-        RecommendFilter.upNameRegExp = RegExp(
-          Pref.banUpNames,
-          caseSensitive: false,
-        );
-        RecommendFilter.enableUpName =
-            RecommendFilter.upNameRegExp.pattern.isNotEmpty;
-        DynamicsDataModel.banWordForDyn = RegExp(
-          Pref.banWordForDyn,
-          caseSensitive: false,
-        );
-        DynamicsDataModel.enableFilter =
-            DynamicsDataModel.banWordForDyn.pattern.isNotEmpty;
-      } catch (_) {}
+      // 关键词/白名单都是启动时读进静态字段的，这里统一刷新一次
+      refreshFilterState();
       SmartDialog.showToast(
         '已合并过滤规则：关键词更新 ${res.patterns} 组 / '
         '直播词 ${res.liveWords} 个 / 弹幕词 ${res.danmakuWords} 个 / '
