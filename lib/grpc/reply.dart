@@ -140,6 +140,11 @@ abstract final class ReplyGrpc {
   }
 
   static bool needRemoveGrpc(ReplyInfo reply, {Int64? upMid}) {
+    // UP 本人的评论一律保留：只有你自己把他拉黑了才会挡。
+    // upMid 为 0 表示接口没给（动态/专栏评论区等），这时不做豁免，避免误伤。
+    if (upMid != null && upMid != Int64.ZERO && reply.mid == upMid) {
+      return GlobalData().blackMids.contains(reply.mid.toInt());
+    }
     return _blockReplyUid(reply, upMid) ||
         _blockReplyLevel(reply, upMid) ||
         _blockFansMedal(reply) ||
