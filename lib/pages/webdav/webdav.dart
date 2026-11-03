@@ -328,6 +328,12 @@ class WebDav {
             RecommendFilter.rcmdRegExp.pattern.isNotEmpty;
         VideoHttp.zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
         VideoHttp.enableFilter = VideoHttp.zoneRegExp.pattern.isNotEmpty;
+        RecommendFilter.upNameRegExp = RegExp(
+          Pref.banUpNames,
+          caseSensitive: false,
+        );
+        RecommendFilter.enableUpName =
+            RecommendFilter.upNameRegExp.pattern.isNotEmpty;
         DynamicsDataModel.banWordForDyn = RegExp(
           Pref.banWordForDyn,
           caseSensitive: false,
