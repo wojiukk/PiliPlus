@@ -39,6 +39,7 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/subtitle_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/wbi_sign.dart';
+import 'package:PiliPlus/utils/zone_filter.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:protobuf/protobuf.dart';
@@ -83,11 +84,19 @@ abstract final class VideoHttp {
 
   static bool _filterWebRcmd(dynamic i) {
     if (i['goto'] != 'av') return true;
+    // 收集分区名，供设置页点选
+    ZoneFilter.note(i['tname']);
     // 拉黑用户 / 16 位ID账号
     if (i['owner'] != null &&
         GlobalData().shouldBlockUid(i['owner']['mid'])) {
       return true;
     }
+    // 分区关键词：网页推荐这条路径原来没查分区，等于"分区过滤"对它无效
+    if (enableFilter && i['tname'] != null && zoneRegExp.hasMatch(i['tname'])) {
+      return true;
+    }
+    // 分区白名单：只放行名单里的分区
+    if (!ZoneFilter.allow(i['tname'])) return true;
     return false;
   }
 
@@ -102,11 +111,15 @@ abstract final class VideoHttp {
         GlobalData().shouldBlockUid(i['args']['up_id'])) {
       return true;
     }
+    // 收集分区名，供设置页点选
+    ZoneFilter.note(i['args']?['tname']);
     if (enableFilter &&
         i['args']?['tname'] != null &&
         zoneRegExp.hasMatch(i['args']['tname'])) {
       return true;
     }
+    // 分区白名单：只放行名单里的分区
+    if (!ZoneFilter.allow(i['args']?['tname'])) return true;
     return false;
   }
 
@@ -179,6 +192,8 @@ abstract final class VideoHttp {
   }
 
   static bool _filterHotAndRank(dynamic i) {
+    // 收集分区名，供设置页点选
+    ZoneFilter.note(i['tname']);
     if (GlobalData().shouldBlockUid(i['owner']['mid'])) return false;
     if (RecommendFilter.filterTitle(i['title'])) return false;
     if (RecommendFilter.filterLikeRatio(i['stat']['like'], i['stat']['view'])) {
@@ -187,6 +202,8 @@ abstract final class VideoHttp {
     if (enableFilter && i['tname'] != null && zoneRegExp.hasMatch(i['tname'])) {
       return false;
     }
+    // 分区白名单：只放行名单里的分区（返回 false 表示过滤掉）
+    if (!ZoneFilter.allow(i['tname'])) return false;
     return true;
   }
 
@@ -387,6 +404,11 @@ abstract final class VideoHttp {
     if (res.data['code'] == 0) {
       final items = (res.data['data'] as List?)
           ?.whereNotBlocked((e) => e['owner']?['mid'])
+          // 分区白名单（顺带收集分区名）
+          .where((e) {
+            ZoneFilter.note(e['tname']);
+            return ZoneFilter.allow(e['tname']);
+          })
           .map((i) => HotVideoItemModel.fromJson(i));
       final list = RecommendFilter.applyFilterToRelatedVideos
           ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()
