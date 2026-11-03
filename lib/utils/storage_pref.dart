@@ -1168,6 +1168,33 @@ abstract final class Pref {
   static String get danmakuBlockWordsRaw =>
       _setting.get(SettingBoxKey.danmakuBlockWords, defaultValue: '') as String;
 
+  /// 分区白名单原始文本（留空 = 不启用）
+  static String get allowZonesRaw =>
+      _setting.get(SettingBoxKey.allowZones, defaultValue: '') as String;
+
+  /// 只允许出现这些分区的视频（统一小写比较，支持部分匹配）
+  static Set<String> get allowZones => allowZonesRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim().toLowerCase())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set allowZones(Set<String> zones) =>
+      _setting.put(SettingBoxKey.allowZones, zones.join('\n'));
+
+  /// 推荐里出现过的分区名（设置页做点选用，只存本地、不参与同步）
+  static String get seenZonesRaw =>
+      _setting.get(SettingBoxKey.seenZones, defaultValue: '') as String;
+
+  static Set<String> get seenZones => seenZonesRaw
+      .split(RegExp(r'[\n\r]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set seenZones(Set<String> zones) =>
+      _setting.put(SettingBoxKey.seenZones, zones.join('\n'));
+
   /// 视频弹幕要屏蔽的关键词（本地，纯文本匹配，不依赖账号）
   static Set<String> get danmakuBlockWords => danmakuBlockWordsRaw
       .split(RegExp(r'[,，\n\r|、]'))
