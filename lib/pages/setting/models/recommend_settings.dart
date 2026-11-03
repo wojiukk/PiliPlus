@@ -1,6 +1,7 @@
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/foundation.dart';
@@ -104,6 +105,17 @@ List<SettingsModel> get recommendSettings => [
     setKey: SettingBoxKey.applyFilterToRelatedVideos,
     defaultVal: true,
     onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
+  ),
+  SwitchModel(
+    title: '屏蔽16位ID账号（2023年后注册）',
+    subtitle:
+        '作用域: 评论、首页推荐、热门/排行、相关视频、搜索结果、直播弹幕\n'
+        'UID 位数 ≥ 16 即视为新注册账号，纯本地判断、不额外请求\n'
+        '注意: 2023 年后注册的真人同样会被隐藏，默认关闭',
+    leading: const Icon(Icons.block),
+    setKey: SettingBoxKey.blockSnowflakeUid,
+    defaultVal: false,
+    onChanged: (value) => GlobalData().blockSnowflakeUid = value,
   ),
   getBlockTagsModel(
     title: '搜索标签黑名单',
