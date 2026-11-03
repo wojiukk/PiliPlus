@@ -169,6 +169,37 @@ abstract final class GStorage {
     return merged.length;
   }
 
+  /// ===== 分区白名单单独同步 =====
+
+  /// 仅导出分区白名单
+  static String exportAllowZones() =>
+      Utils.jsonEncoder.convert({SettingBoxKey.allowZones: Pref.allowZonesRaw});
+
+  /// 解析分区白名单备份，返回原始文本；格式不对时返回空字符串
+  static String parseAllowZones(String data) {
+    final map = jsonDecode(data);
+    if (map is Map) {
+      if (map[SettingBoxKey.allowZones] case final String zones) {
+        return zones;
+      }
+      if (map[SettingBoxKey.allowZones] case final List<dynamic> list) {
+        return list.whereType<String>().join('\n');
+      }
+    }
+    return '';
+  }
+
+  /// 应用分区白名单：整份覆盖（白名单做并集只会越并越宽松），返回总数
+  static int applyAllowZones(String raw) {
+    final zones = raw
+        .split(RegExp(r'[,，\n\r|、]'))
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    Pref.allowZones = zones;
+    return zones.length;
+  }
+
   /// ===== 过滤规则同步（只含关键词/标签/SC，不含播放与界面设置）=====
 
   static const String _filterRulesKey = 'filterRules';
@@ -184,6 +215,7 @@ abstract final class GStorage {
       SettingBoxKey.banWordForDyn: Pref.banWordForDyn,
       SettingBoxKey.liveBlockKeywords: Pref.liveBlockKeywordsRaw,
       SettingBoxKey.danmakuBlockWords: Pref.danmakuBlockWordsRaw,
+      SettingBoxKey.allowZones: Pref.allowZonesRaw,
       SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
       SettingBoxKey.superChatMinPrice: Pref.superChatMinPrice,
     },
@@ -286,6 +318,16 @@ abstract final class GStorage {
       remoteText(SettingBoxKey.blockSearchTags),
     );
     Pref.blockSearchTags = tags.toSet();
+
+    // 分区白名单是"只保留"，做并集只会越同步越宽松，
+    // 所以只在本地为空时导入，否则保留本地那一份
+    final remoteZones = _mergeWords(
+      '',
+      remoteText(SettingBoxKey.allowZones),
+    );
+    if (Pref.allowZonesRaw.trim().isEmpty && remoteZones.isNotEmpty) {
+      setting.put(SettingBoxKey.allowZones, remoteZones.join('\n'));
+    }
 
     // 金额阈值取两者较大值：屏蔽得更彻底（想反向合并可改成 min）
     var scPrice = Pref.superChatMinPrice;
