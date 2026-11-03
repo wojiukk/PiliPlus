@@ -165,6 +165,7 @@ abstract final class SettingBoxKey {
       blockReplyAtCount = 'blockReplyAtCount',
       blockReplyLevel = 'blockReplyLevel',
       blockFansMedal = 'blockFansMedal',
+      blockSnowflakeUid = 'blockSnowflakeUid',
       blockSearchTags = 'blockSearchTags',
       liveBlockKeywords = 'liveBlockKeywords',
       filterIntro = 'filterIntro';
