@@ -6,6 +6,9 @@ abstract class BaseRcmdVideoItemModel extends BaseVideoItemModel {
   String? uri;
   String? rcmdReason;
 
+  /// 分区名：留着给"复用旧列表时重跑分区规则"用
+  String? tname;
+
   // app推荐专属
   int? param;
   String? pgcBadge;
@@ -22,6 +25,7 @@ class RcmdVideoItemModel extends BaseRcmdVideoItemModel {
     title = json["title"];
     duration = json["duration"];
     pubdate = json["pubdate"];
+    tname = json["tname"];
     owner = Owner.fromJson(json["owner"]);
     stat = Stat.fromJson(json["stat"]);
     isFollowed = json["is_followed"] == 1;
