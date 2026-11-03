@@ -260,13 +260,18 @@ class WebDav {
       final path = '${config.directory}/$_allowZonesFileName';
       final data = await client.read(path);
       final raw = GStorage.parseAllowZones(utf8.decode(data));
-      if (raw.trim().isEmpty) {
-        SmartDialog.showToast('备份里没有分区白名单');
+      if (raw == null) {
+        SmartDialog.showToast('备份里没有分区白名单，或格式不对，已忽略');
         return;
       }
+      // 空字符串 = 备份里就是空的，按"关闭白名单"处理，覆盖掉本地
       final total = GStorage.applyAllowZones(raw);
       ZoneFilter.reload();
-      SmartDialog.showToast('已恢复分区白名单，共 $total 个（覆盖本地）');
+      SmartDialog.showToast(
+        total == 0
+            ? '已清空分区白名单（白名单已关闭）'
+            : '已恢复分区白名单，共 $total 个（覆盖本地）',
+      );
     } catch (e) {
       SmartDialog.showToast('恢复失败: $e');
     }
