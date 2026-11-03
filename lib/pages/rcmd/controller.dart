@@ -110,13 +110,27 @@ class RcmdController extends CommonListController {
   void removeUpFromList(int? mid) {
     if (mid == null) return;
     if (loadingState.value case Success(:final response?)) {
-      final before = response.length;
-      response.removeWhere(
-        (e) => e is BaseVideoItemModel && e.owner.mid == mid,
-      );
-      if (response.length != before) {
-        loadingState.refresh();
+      final mark = lastRefreshAt;
+      var removed = 0;
+      var removedBeforeMark = 0;
+      // 从后往前删，索引不会因删除而错位
+      for (var i = response.length - 1; i >= 0; i--) {
+        final e = response[i];
+        if (e is BaseVideoItemModel && e.owner.mid == mid) {
+          response.removeAt(i);
+          removed++;
+          if (mark != null && i < mark) removedBeforeMark++;
+        }
       }
+      if (removed == 0) return;
+      if (mark != null) {
+        // "上次看到这里"的分隔标记要跟着往前挪，否则视图按它换算索引会越界
+        var next = mark - removedBeforeMark;
+        if (next < 0) next = 0;
+        if (next > response.length) next = response.length;
+        lastRefreshAt = next;
+      }
+      loadingState.refresh();
     }
   }
 
