@@ -126,17 +126,20 @@ abstract final class ReplyGrpc {
     return false;
   }
 
-  /// 屏蔽 16 位 UID（2023 年后注册的雪花 ID 账号）；豁免 UP 本人和自己
-  static bool _blockSnowflakeUid(ReplyInfo reply, Int64? upMid) {
-    if (!GlobalData().blockSnowflakeUid) return false;
+  /// 账号级屏蔽统一入口：本地黑名单 + 16 位ID（2023 年后注册）
+  /// 自己永远跳过；16 位规则额外豁免 UP 本人，否则新 UP 的评论区会整片空掉
+  static bool _blockReplyUid(ReplyInfo reply, Int64? upMid) {
+    final mid = reply.mid.toInt();
+    if (mid == Accounts.main.mid) return false;
+    final gd = GlobalData();
+    if (gd.blackMids.contains(mid)) return true;
+    if (!gd.blockSnowflakeUid) return false;
     if (upMid != null && reply.mid == upMid) return false;
-    if (reply.mid.toInt() == Accounts.main.mid) return false;
-    return GlobalData().isSnowflakeUid(reply.mid);
+    return gd.isSnowflakeUid(reply.mid);
   }
 
   static bool needRemoveGrpc(ReplyInfo reply, {Int64? upMid}) {
-    return GlobalData().blackMids.contains(reply.mid.toInt()) ||
-        _blockSnowflakeUid(reply, upMid) ||
+    return _blockReplyUid(reply, upMid) ||
         _blockReplyLevel(reply, upMid) ||
         _blockFansMedal(reply) ||
         _blockReplyAtCount(reply) ||
