@@ -1164,6 +1164,20 @@ abstract final class Pref {
   static set liveBlockKeywords(Set<String> words) =>
       _setting.put(SettingBoxKey.liveBlockKeywords, words.join('\n'));
 
+  /// 视频弹幕本地屏蔽关键词原始字符串（换行或逗号分隔）
+  static String get danmakuBlockWordsRaw =>
+      _setting.get(SettingBoxKey.danmakuBlockWords, defaultValue: '') as String;
+
+  /// 视频弹幕要屏蔽的关键词（本地，纯文本匹配，不依赖账号）
+  static Set<String> get danmakuBlockWords => danmakuBlockWordsRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set danmakuBlockWords(Set<String> words) =>
+      _setting.put(SettingBoxKey.danmakuBlockWords, words.join('\n'));
+
   static bool get filterIntro =>
       _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
 }
