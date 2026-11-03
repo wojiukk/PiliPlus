@@ -1,7 +1,11 @@
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/models/model_rec_video_item.dart';
+import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 
 class RcmdController extends CommonListController {
@@ -86,12 +90,32 @@ class RcmdController extends CommonListController {
           if (savedRcmdTip) {
             lastRefreshAt = dataList.length;
           }
-          if (response.length > 200) {
-            dataList.addAll(response.take(50));
-          } else {
-            dataList.addAll(response);
-          }
+          // 旧列表是"当时"过滤过的，现在设置可能变了，
+          // 复用前必须重跑：账号黑名单 + 分区（黑名单/白名单）+ 推荐过滤
+          final kept = response
+              .where((e) {
+                if (e is! BaseRcmdVideoItemModel) return false;
+                if (GlobalData().shouldBlockUid(e.owner.mid)) return false;
+                if (!VideoHttp.allowZone(e.tname)) return false;
+                return !RecommendFilter.filterWithExempt(e);
+              })
+              .toList();
+          dataList.addAll(kept.length > 200 ? kept.take(50) : kept);
         }
+      }
+    }
+  }
+
+  /// 拉黑某个 UP 后，立刻把当前列表里他的视频清掉（不用等刷新）
+  void removeUpFromList(int? mid) {
+    if (mid == null) return;
+    if (loadingState.value case Success(:final response?)) {
+      final before = response.length;
+      response.removeWhere(
+        (e) => e is BaseVideoItemModel && e.owner.mid == mid,
+      );
+      if (response.length != before) {
+        loadingState.refresh();
       }
     }
   }
