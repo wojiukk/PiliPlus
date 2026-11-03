@@ -52,6 +52,16 @@ List<SettingsModel> get dmSettings => [
     setKey: SettingBoxKey.mergeDanmaku,
     defaultVal: false,
   ),
+  getBlockTagsModel(
+    title: '弹幕关键词屏蔽',
+    key: SettingBoxKey.danmakuBlockWords,
+    scope: '视频弹幕（纯本地，不依赖登录）',
+    unit: '个关键词',
+    icon: CustomIcons.dm_settings,
+    hint: '一行一个关键词，也可用逗号分隔，支持整段粘贴批量添加。\n'
+        '命中即丢弃该条弹幕，纯本地匹配、不额外请求。\n'
+        '表情弹幕的正文形如 [大笑]，要连方括号一起填才能命中。',
+  ),
 ];
 
 void _showDmHeightDialog(BuildContext context, VoidCallback setState) {
