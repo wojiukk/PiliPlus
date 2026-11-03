@@ -17,22 +17,34 @@ class GlobalData {
 
   bool showMedal = Pref.showMedal;
 
-  /// 屏蔽 16 位及以上 UID（2023 年后注册的雪花 ID 账号）
+  /// 按 UID 位数屏蔽（16 位及以上；这类号多为 2023 年后注册的雪花 ID）
   bool blockSnowflakeUid = Pref.blockSnowflakeUid;
 
-  /// 16 位及以上即视为雪花 ID 账号（2023 年后注册）
+  /// 16 位及以上即视为"长 UID"账号
   static const int snowflakeUidMinLength = 16;
 
+  /// 把 int / String / Int64 / num 统一成 int，解析失败返回 null
+  static int? uidOf(Object? mid) {
+    if (mid == null) return null;
+    if (mid is int) return mid;
+    if (mid is num) return mid.toInt();
+    return int.tryParse(mid.toString().trim());
+  }
+
   static bool isSnowflakeUid(Object? mid) {
-    if (mid == null) return false;
-    final uid = mid is num ? mid.toInt() : int.tryParse('$mid'.trim());
+    final uid = uidOf(mid);
     if (uid == null || uid <= 0) return false;
     return uid.toString().length >= snowflakeUidMinLength;
   }
 
-  /// 本地黑名单命中，或（开关打开时）是 16 位雪花 ID 账号
-  bool shouldBlockUid(Object? mid) =>
-      blackMids.contains(mid) || (blockSnowflakeUid && isSnowflakeUid(mid));
+  /// 本地黑名单命中，或（开关打开时）是长 UID 账号
+  /// 先把 UID 规范成 int 再查黑名单，避免接口给字符串时漏判
+  bool shouldBlockUid(Object? mid) {
+    final uid = uidOf(mid);
+    if (uid == null) return false;
+    return blackMids.contains(uid) ||
+        (blockSnowflakeUid && isSnowflakeUid(uid));
+  }
 
   // 私有构造函数
   GlobalData._();
