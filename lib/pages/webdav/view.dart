@@ -202,11 +202,40 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().backupAllowZones,
+                    child: const Text('备份分区白名单'),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().restoreAllowZones,
+                    child: const Text('恢复分区白名单'),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             const Text(
               '过滤规则只含：评论/标题/分区/动态关键词、直播弹幕词、视频弹幕词、SC 金额、标签黑名单；'
               '恢复时按并集合并，不影响播放与界面设置。\n'
-              '注：「备份标签 / 恢复标签」等同于过滤规则里的标签部分，单独留着方便只同步标签。',
+              '注：「备份标签 / 恢复标签」等同于过滤规则里的标签部分，单独留着方便只同步标签。\n'
+              '「备份分区白名单」是整份覆盖，不是合并——白名单合并只会越并越宽松。',
               style: TextStyle(fontSize: 12),
             ),
           ],
