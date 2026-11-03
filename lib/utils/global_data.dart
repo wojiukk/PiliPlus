@@ -13,6 +13,9 @@ class GlobalData {
 
   Set<int> blackMids = Pref.blackMids;
 
+  /// 黑名单版本号：任何增删都会 +1，供 CRC 哈希这类缓存失效用
+  int blacklistVersion = 0;
+
   bool dynamicsWaterfallFlow = Pref.dynamicsWaterfallFlow;
 
   bool showMedal = Pref.showMedal;
