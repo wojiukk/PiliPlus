@@ -63,13 +63,25 @@ class PlDanmakuController {
   }
 
   /// 把本地黑名单的 mid 换算成弹幕用的 midHash（crc32 十六进制），
-  /// 和「弹幕屏蔽 - 用户」用的是同一套算法
+  /// 和「弹幕屏蔽 - 用户」用的是同一套算法。
+  /// 名单大时每段弹幕都重算很浪费：按 GlobalData 的黑名单版本号缓存，
+  /// 版本号只增不减，增删都会失效（不能只比长度，换人时长度可能不变）。
+  static Set<String>? _hashCache;
+  static int _hashCacheVersion = -1;
+
   Set<String> _buildBlacklistHashes() {
-    final mids = GlobalData().blackMids;
+    final gd = GlobalData();
+    final mids = gd.blackMids;
     if (mids.isEmpty) return const <String>{};
-    return mids
+    if (_hashCache != null && _hashCacheVersion == gd.blacklistVersion) {
+      return _hashCache!;
+    }
+    final hashes = mids
         .map((mid) => getCrc32(ascii.encode('$mid'), 0).toRadixString(16))
         .toSet();
+    _hashCache = hashes;
+    _hashCacheVersion = gd.blacklistVersion;
+    return hashes;
   }
 
   void handleDanmaku(List<DanmakuElem> elems) {
