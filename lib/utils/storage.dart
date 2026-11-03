@@ -169,6 +169,131 @@ abstract final class GStorage {
     return merged.length;
   }
 
+  /// ===== 过滤规则同步（只含关键词/标签/SC，不含播放与界面设置）=====
+
+  static const String _filterRulesKey = 'filterRules';
+  static const String _filterRulesVersionKey = 'version';
+
+  /// 导出过滤规则：七个键，独立于整包设置
+  static String exportFilterRules() => Utils.jsonEncoder.convert({
+    _filterRulesVersionKey: 1,
+    _filterRulesKey: {
+      SettingBoxKey.banWordForReply: Pref.banWordForReply,
+      SettingBoxKey.banWordForRecommend: Pref.banWordForRecommend,
+      SettingBoxKey.banWordForZone: Pref.banWordForZone,
+      SettingBoxKey.banWordForDyn: Pref.banWordForDyn,
+      SettingBoxKey.liveBlockKeywords: Pref.liveBlockKeywordsRaw,
+      SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
+      SettingBoxKey.superChatMinPrice: Pref.superChatMinPrice,
+    },
+  });
+
+  /// 解析过滤规则备份；也兼容直接把键值放在顶层的文件
+  static Map<String, dynamic> parseFilterRules(String data) {
+    final map = jsonDecode(data);
+    if (map is! Map) return const {};
+    final rules = map[_filterRulesKey] ?? map;
+    if (rules is! Map) return const {};
+    return Map<String, dynamic>.from(rules);
+  }
+
+  static Iterable<String> _splitWords(String value) => value
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty);
+
+  static bool _isValidPattern(String pattern) {
+    if (pattern.isEmpty) return true;
+    try {
+      RegExp(pattern);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 正则关键词按 | 求并集；合并结果非法时保留本地，避免启动时崩溃
+  static String _mergePattern(String local, String remote) {
+    final remoteText = remote.trim();
+    if (remoteText.isEmpty) return local;
+    if (local.trim().isEmpty) {
+      return _isValidPattern(remoteText) ? remoteText : local;
+    }
+    final seen = <String>{};
+    final parts = <String>[];
+    for (final raw in [...local.split('|'), ...remoteText.split('|')]) {
+      final part = raw.trim();
+      if (part.isEmpty) continue;
+      if (seen.add(part.toLowerCase())) parts.add(part);
+    }
+    final merged = parts.join('|');
+    return _isValidPattern(merged) ? merged : local;
+  }
+
+  /// 关键词/标签按小写去重，保留用户原本写法
+  static List<String> _mergeWords(String local, String remote) {
+    final seen = <String>{};
+    final list = <String>[];
+    for (final word in [..._splitWords(local), ..._splitWords(remote)]) {
+      if (seen.add(word.toLowerCase())) list.add(word);
+    }
+    return list;
+  }
+
+  /// 合并过滤规则（并集），返回合并后的统计供提示用
+  static ({int patterns, int liveWords, int tags, int scPrice}) mergeFilterRules(
+    Map<String, dynamic> remote,
+  ) {
+    String remoteText(String key) {
+      final value = remote[key];
+      return value is String ? value : '';
+    }
+
+    var patterns = 0;
+    void mergePatternKey(String key, String local) {
+      final merged = _mergePattern(local, remoteText(key));
+      if (merged != local) {
+        setting.put(key, merged);
+        patterns++;
+      }
+    }
+
+    mergePatternKey(SettingBoxKey.banWordForReply, Pref.banWordForReply);
+    mergePatternKey(SettingBoxKey.banWordForRecommend, Pref.banWordForRecommend);
+    mergePatternKey(SettingBoxKey.banWordForZone, Pref.banWordForZone);
+    mergePatternKey(SettingBoxKey.banWordForDyn, Pref.banWordForDyn);
+
+    final liveWords = _mergeWords(
+      Pref.liveBlockKeywordsRaw,
+      remoteText(SettingBoxKey.liveBlockKeywords),
+    );
+    Pref.liveBlockKeywords = liveWords.toSet();
+
+    final tags = _mergeWords(
+      Pref.blockSearchTagsRaw,
+      remoteText(SettingBoxKey.blockSearchTags),
+    );
+    Pref.blockSearchTags = tags.toSet();
+
+    // 金额阈值取两者较大值：屏蔽得更彻底（想反向合并可改成 min）
+    var scPrice = Pref.superChatMinPrice;
+    final remotePrice = remote[SettingBoxKey.superChatMinPrice];
+    if (remotePrice is num) {
+      final value = remotePrice.toInt();
+      if (value > scPrice) {
+        scPrice = value;
+        setting.put(SettingBoxKey.superChatMinPrice, value);
+      }
+    }
+
+    return (
+      patterns: patterns,
+      liveWords: liveWords.length,
+      tags: tags.length,
+      scPrice: scPrice,
+    );
+  }
+
   static void regAdapter() {
     Hive
       ..registerAdapter(OwnerAdapter())
