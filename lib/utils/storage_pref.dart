@@ -291,6 +291,10 @@ abstract final class Pref {
   static String get banWordForZone =>
       _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
 
+  /// UP 名字关键词（正则），只作用于推荐/热门/分区/相关视频/直播列表
+  static String get banUpNames =>
+      _setting.get(SettingBoxKey.banUpNames, defaultValue: '');
+
   static bool get appRcmd =>
       _setting.get(SettingBoxKey.appRcmd, defaultValue: true);
 
