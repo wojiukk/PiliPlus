@@ -212,6 +212,7 @@ abstract final class GStorage {
       SettingBoxKey.banWordForReply: Pref.banWordForReply,
       SettingBoxKey.banWordForRecommend: Pref.banWordForRecommend,
       SettingBoxKey.banWordForZone: Pref.banWordForZone,
+      SettingBoxKey.banUpNames: Pref.banUpNames,
       SettingBoxKey.banWordForDyn: Pref.banWordForDyn,
       SettingBoxKey.liveBlockKeywords: Pref.liveBlockKeywordsRaw,
       SettingBoxKey.danmakuBlockWords: Pref.danmakuBlockWordsRaw,
@@ -299,6 +300,7 @@ abstract final class GStorage {
     mergePatternKey(SettingBoxKey.banWordForReply, Pref.banWordForReply);
     mergePatternKey(SettingBoxKey.banWordForRecommend, Pref.banWordForRecommend);
     mergePatternKey(SettingBoxKey.banWordForZone, Pref.banWordForZone);
+    mergePatternKey(SettingBoxKey.banUpNames, Pref.banUpNames);
     mergePatternKey(SettingBoxKey.banWordForDyn, Pref.banWordForDyn);
 
     final liveWords = _mergeWords(
