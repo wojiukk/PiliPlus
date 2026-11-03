@@ -282,11 +282,7 @@ class VideoPopupMenu extends StatelessWidget {
                                 // 顺序不能反：先按索引移除当前这张卡，
                                 // 再按 UID 清其余卡片，否则 onRemove 会用过期索引删错卡
                                 onRemove?.call();
-                                if (Get.isRegistered<RcmdController>()) {
-                                  Get.find<RcmdController>().removeUpFromList(
-                                    videoItem.owner.mid,
-                                  );
-                                }
+                                _removeUpFromHomeList(videoItem.owner.mid);
                               },
                               child: const Text('本地屏蔽'),
                             ),
@@ -309,6 +305,10 @@ class VideoPopupMenu extends StatelessWidget {
                                 );
                                 if (res.isSuccess) {
                                   onRemove?.call();
+                                  // 服务端拉黑同样会写入本地黑名单，列表清理走同一入口
+                                  _removeUpFromHomeList(
+                                    videoItem.owner.mid,
+                                  );
                                 } else {
                                   res.toast();
                                 }
@@ -345,4 +345,11 @@ class VideoPopupMenu extends StatelessWidget {
               .toList(),
     );
   }
+}
+
+/// 本地屏蔽 / 服务端拉黑后，统一走这里清掉首页推荐列表里该 UP 的其余卡片
+void _removeUpFromHomeList(int? mid) {
+  if (mid == null) return;
+  if (!Get.isRegistered<RcmdController>()) return;
+  Get.find<RcmdController>().removeUpFromList(mid);
 }
