@@ -71,6 +71,15 @@ List<SettingsModel> get recommendSettings => [
     banScope: '推荐、热门、分区、相关视频',
   ),
   getBanWordModel(
+    title: 'UP 名字关键词过滤',
+    key: SettingBoxKey.banUpNames,
+    onChanged: (value) {
+      RecommendFilter.upNameRegExp = value;
+      RecommendFilter.enableUpName = value.pattern.isNotEmpty;
+    },
+    banScope: '推荐、热门/排行、相关视频、直播列表（搜索不受影响）',
+  ),
+  getBanWordModel(
     title: '分区关键词过滤',
     key: SettingBoxKey.banWordForZone,
     onChanged: (value) {
