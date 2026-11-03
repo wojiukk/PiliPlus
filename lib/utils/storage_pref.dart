@@ -661,6 +661,10 @@ abstract final class Pref {
     defaultValue: true,
   );
 
+  /// 屏蔽 16 位 UID（2023 年后注册的雪花 ID 账号），默认关闭
+  static bool get blockSnowflakeUid =>
+      _setting.get(SettingBoxKey.blockSnowflakeUid, defaultValue: false);
+
   static bool get enableBackgroundPlay =>
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);
 
