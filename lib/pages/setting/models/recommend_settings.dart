@@ -1,10 +1,14 @@
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/zone_filter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 
@@ -117,9 +121,120 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: false,
     onChanged: (value) => GlobalData().blockSnowflakeUid = value,
   ),
+  NormalModel(
+    title: '只看这些分区（点选）',
+    leading: const Icon(Icons.playlist_add_check),
+    getSubtitle: () {
+      final zones = Pref.allowZones;
+      if (zones.isEmpty) return '未启用｜点这里勾选想看的分类';
+      final shown = zones.take(4).join('、');
+      return '已勾选 ${zones.length} 个：$shown${zones.length > 4 ? '…' : ''}';
+    },
+    onTap: (context, setState) => showZonePicker(context, setState),
+  ),
   getBlockTagsModel(
     title: '搜索标签黑名单',
     key: SettingBoxKey.blockSearchTags,
     scope: '搜索结果（综合/视频）',
   ),
 ];
+
+/// 分区白名单选择框：选项来自 ZoneFilter 收集到的真实分区名
+void showZonePicker(BuildContext context, VoidCallback setState) {
+  ZoneFilter.flush();
+  showDialog(
+    context: context,
+    builder: (_) => const _ZonePickerDialog(),
+  ).then((_) => setState());
+}
+
+class _ZonePickerDialog extends StatefulWidget {
+  const _ZonePickerDialog();
+
+  @override
+  State<_ZonePickerDialog> createState() => _ZonePickerDialogState();
+}
+
+class _ZonePickerDialogState extends State<_ZonePickerDialog> {
+  late final List<String> _available = ZoneFilter.seen.toList()..sort();
+  late final Set<String> _selected = {...Pref.allowZones};
+  final _customCtr = TextEditingController();
+
+  @override
+  void dispose() {
+    _customCtr.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final extra = _customCtr.text
+        .split(RegExp(r'[,，\s]+'))
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty);
+    _selected.addAll(extra);
+    Pref.allowZones = _selected;
+    Get.back();
+    SmartDialog.showToast(
+      _selected.isEmpty ? '已关闭白名单' : '已保存 ${_selected.length} 个分区',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      constraints: Style.dialogFixedConstraints,
+      title: const Text('只看这些分区'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '勾选后，推荐里只保留这些分区，其他全部隐藏；一个都不勾 = 不启用。\n'
+                '选项来自你最近刷到过的分区，刷得越多越全。',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              if (_available.isEmpty)
+                const Text('还没收集到分区，先去首页刷几屏再回来。')
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final z in _available)
+                      FilterChip(
+                        label: Text(z),
+                        selected: _selected.contains(z.toLowerCase()),
+                        onSelected: (v) => setState(() {
+                          if (v) {
+                            _selected.add(z.toLowerCase());
+                          } else {
+                            _selected.remove(z.toLowerCase());
+                          }
+                        }),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _customCtr,
+                decoration: const InputDecoration(
+                  labelText: '手动补充（可选，逗号分隔）',
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: Get.back, child: const Text('取消')),
+        TextButton(onPressed: _save, child: const Text('保存')),
+      ],
+    );
+  }
+}
