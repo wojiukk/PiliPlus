@@ -13,6 +13,17 @@ abstract final class RecommendFilter {
   );
   static bool enableFilter = rcmdRegExp.pattern.isNotEmpty;
 
+  /// UP 名字关键词（正则）
+  static RegExp upNameRegExp = RegExp(Pref.banUpNames, caseSensitive: false);
+  static bool enableUpName = upNameRegExp.pattern.isNotEmpty;
+
+  /// UP 名字命中关键词。放在 filterAll 里，已关注豁免由 filterWithExempt 负责
+  static bool filterUpName(String? name) =>
+      enableUpName &&
+      name != null &&
+      name.isNotEmpty &&
+      upNameRegExp.hasMatch(name);
+
   // (web/app)rcmd
   static bool filterWithExempt(BaseVideoItemModel videoItem) {
     //由于相关视频中没有已关注标签，只能视为非关注视频
@@ -47,6 +58,7 @@ abstract final class RecommendFilter {
   static bool filterAll(BaseVideoItemModel videoItem) {
     return filterDuration(videoItem.duration) ||
         filterLikeRatio(videoItem.stat.like, videoItem.stat.view) ||
-        filterTitle(videoItem.title);
+        filterTitle(videoItem.title) ||
+        filterUpName(videoItem.owner.name);
   }
 }
