@@ -135,7 +135,8 @@ abstract final class ReplyGrpc {
     if (gd.blackMids.contains(mid)) return true;
     if (!gd.blockSnowflakeUid) return false;
     if (upMid != null && reply.mid == upMid) return false;
-    return gd.isSnowflakeUid(reply.mid);
+    // isSnowflakeUid 是 static，只能通过类名调用
+    return GlobalData.isSnowflakeUid(reply.mid);
   }
 
   static bool needRemoveGrpc(ReplyInfo reply, {Int64? upMid}) {
