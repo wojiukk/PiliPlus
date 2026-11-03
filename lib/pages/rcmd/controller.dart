@@ -32,12 +32,15 @@ class RcmdController extends CommonListController {
     queryData();
   }
 
+  /// 直接把一页要成 _minCount 条，避免"先拉 20 条再补一页"的二次等待。
+  /// 服务端要是截断到 20，下面还有补水兜底。
   Future<LoadingState> _fetch(int idx) => appRcmd
       ? VideoHttp.rcmdVideoListApp(freshIdx: idx)
-      : VideoHttp.rcmdVideoList(freshIdx: idx, ps: 20);
+      : VideoHttp.rcmdVideoList(freshIdx: idx, ps: _minCount);
 
-  /// 先拉一页，过滤后（过滤在 VideoHttp 里做）不够 20 条就继续往下拉，
-  /// 最多补 3 页。补完把多拉的页数记到 page 上，避免下一轮重复请求。
+  /// 首屏过滤后不够一屏（桌面 36 / 手机 18）就往下补，最多 3 页。
+  /// 补页只在刷新时做，加载更多不打这个补丁，避免滚动时二次等待。
+  /// 补完把多拉的页数记到 page 上，下一轮不会重复请求同一页。
   @override
   Future<LoadingState> customGetData() async {
     _basePage = page;
@@ -46,7 +49,8 @@ class RcmdController extends CommonListController {
       return first;
     }
     final data = first.response;
-    if (data.length >= _minCount) {
+    // 只在"刷新首屏"时补水；加载更多时一页够用，别再多等
+    if (_basePage != 0 || data.length >= _minCount) {
       return first;
     }
 
