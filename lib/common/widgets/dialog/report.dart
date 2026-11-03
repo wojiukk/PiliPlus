@@ -25,6 +25,8 @@ Future<void> autoWrapReportDialog(
   OnReport onReport, {
   ValueGetter<int>? mid,
   VoidCallback? onRemove,
+  /// 本地屏蔽后的全量清理（可选）；不给就只删当前这一条
+  VoidCallback? onBlock,
   String? reportUrl,
   ReasonCheck withContent = _kReportCheck,
   ReasonCheck contentRequired = _kReportCheck,
@@ -148,6 +150,7 @@ Future<void> autoWrapReportDialog(
               Get.back();
               Pref.setBlackMid(mid());
               onRemove?.call();
+              onBlock?.call();
             },
             child: const Text('本地屏蔽'),
           ),
