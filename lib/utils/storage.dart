@@ -175,18 +175,19 @@ abstract final class GStorage {
   static String exportAllowZones() =>
       Utils.jsonEncoder.convert({SettingBoxKey.allowZones: Pref.allowZonesRaw});
 
-  /// 解析分区白名单备份，返回原始文本；格式不对时返回空字符串
-  static String parseAllowZones(String data) {
+  /// 解析分区白名单备份。
+  /// - 字段不存在 → null（不是白名单备份，忽略）
+  /// - 合法空字符串 / 全字符串的空列表 → ''（表示"清空白名单"）
+  /// - 类型不对 → null（拒绝覆盖，别把错误数据当清空）
+  static String? parseAllowZones(String data) {
     final map = jsonDecode(data);
-    if (map is Map) {
-      if (map[SettingBoxKey.allowZones] case final String zones) {
-        return zones;
-      }
-      if (map[SettingBoxKey.allowZones] case final List<dynamic> list) {
-        return list.whereType<String>().join('\n');
-      }
+    if (map is! Map || !map.containsKey(SettingBoxKey.allowZones)) return null;
+    final value = map[SettingBoxKey.allowZones];
+    if (value is String) return value;
+    if (value is List && value.every((e) => e is String)) {
+      return value.join('\n');
     }
-    return '';
+    return null;
   }
 
   /// 应用分区白名单：整份覆盖（白名单做并集只会越并越宽松），返回总数
