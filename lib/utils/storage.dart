@@ -183,6 +183,7 @@ abstract final class GStorage {
       SettingBoxKey.banWordForZone: Pref.banWordForZone,
       SettingBoxKey.banWordForDyn: Pref.banWordForDyn,
       SettingBoxKey.liveBlockKeywords: Pref.liveBlockKeywordsRaw,
+      SettingBoxKey.danmakuBlockWords: Pref.danmakuBlockWordsRaw,
       SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
       SettingBoxKey.superChatMinPrice: Pref.superChatMinPrice,
     },
@@ -241,9 +242,14 @@ abstract final class GStorage {
   }
 
   /// 合并过滤规则（并集），返回合并后的统计供提示用
-  static ({int patterns, int liveWords, int tags, int scPrice}) mergeFilterRules(
-    Map<String, dynamic> remote,
-  ) {
+  static ({
+    int patterns,
+    int liveWords,
+    int danmakuWords,
+    int tags,
+    int scPrice,
+  })
+  mergeFilterRules(Map<String, dynamic> remote) {
     String remoteText(String key) {
       final value = remote[key];
       return value is String ? value : '';
@@ -269,6 +275,12 @@ abstract final class GStorage {
     );
     Pref.liveBlockKeywords = liveWords.toSet();
 
+    final danmakuWords = _mergeWords(
+      Pref.danmakuBlockWordsRaw,
+      remoteText(SettingBoxKey.danmakuBlockWords),
+    );
+    Pref.danmakuBlockWords = danmakuWords.toSet();
+
     final tags = _mergeWords(
       Pref.blockSearchTagsRaw,
       remoteText(SettingBoxKey.blockSearchTags),
@@ -289,6 +301,7 @@ abstract final class GStorage {
     return (
       patterns: patterns,
       liveWords: liveWords.length,
+      danmakuWords: danmakuWords.length,
       tags: tags.length,
       scPrice: scPrice,
     );
