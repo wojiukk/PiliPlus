@@ -204,8 +204,9 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '过滤规则只含：评论/标题/分区/动态关键词、直播弹幕词、SC 金额、标签黑名单；'
-              '恢复时按并集合并，不影响播放与界面设置',
+              '过滤规则只含：评论/标题/分区/动态关键词、直播弹幕词、视频弹幕词、SC 金额、标签黑名单；'
+              '恢复时按并集合并，不影响播放与界面设置。\n'
+              '注：「备份标签 / 恢复标签」等同于过滤规则里的标签部分，单独留着方便只同步标签。',
               style: TextStyle(fontSize: 12),
             ),
           ],
