@@ -204,7 +204,8 @@ class _ZonePickerDialogState extends State<_ZonePickerDialog> {
             children: [
               Text(
                 '勾选后，推荐里只保留这些分区，其他全部隐藏；一个都不勾 = 不启用。\n'
-                '选项来自你最近刷到过的分区，刷得越多越全。',
+                '分区名按「精确匹配」，选项来自你刷到过的真实分区，刷得越多越全。\n'
+                '接口没返回分区名的内容仍会保留（避免整页清空）。',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
@@ -233,7 +234,7 @@ class _ZonePickerDialogState extends State<_ZonePickerDialog> {
               TextFormField(
                 controller: _customCtr,
                 decoration: const InputDecoration(
-                  labelText: '手动补充（可选，逗号分隔）',
+                  labelText: '手动补充（必须填完整分区名，逗号分隔）',
                   isDense: true,
                 ),
               ),
