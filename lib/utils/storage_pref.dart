@@ -1176,7 +1176,7 @@ abstract final class Pref {
   static String get allowZonesRaw =>
       _setting.get(SettingBoxKey.allowZones, defaultValue: '') as String;
 
-  /// 只允许出现这些分区的视频（统一小写比较，支持部分匹配）
+  /// 只允许出现这些分区的视频（统一小写，**精确匹配**，不做部分匹配）
   static Set<String> get allowZones => allowZonesRaw
       .split(RegExp(r'[,，\n\r|、]'))
       .map((e) => e.trim().toLowerCase())
