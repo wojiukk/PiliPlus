@@ -1,4 +1,5 @@
 import 'package:PiliPlus/models_new/live/live_feed_index/card_list.dart';
+import 'package:PiliPlus/utils/live_filter.dart';
 
 class LiveIndexData {
   List<LiveCardList>? cardList;
@@ -26,7 +27,11 @@ class LiveIndexData {
             areaItem = LiveCardList.fromJson(json);
             break;
           case 'small_card_v1':
-            (cardList ??= <LiveCardList>[]).add(LiveCardList.fromJson(json));
+            final card = LiveCardList.fromJson(json);
+            // 黑名单 / 16位ID / 标题与主播名关键词 / 分区关键词
+            if (!LiveFilter.shouldBlock(card.cardData?.smallCardV1)) {
+              (cardList ??= <LiveCardList>[]).add(card);
+            }
             break;
         }
       }
