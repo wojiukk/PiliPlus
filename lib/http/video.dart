@@ -100,6 +100,14 @@ abstract final class VideoHttp {
     return false;
   }
 
+  /// 分区规则统一入口（黑名单 + 白名单），给"复用旧列表重跑规则"用
+  static bool allowZone(String? tname) {
+    if (enableFilter && tname != null && tname.isNotEmpty) {
+      if (zoneRegExp.hasMatch(tname)) return false;
+    }
+    return ZoneFilter.allow(tname);
+  }
+
   static bool _filterAppRcmd(dynamic i) {
     if (i['card_goto'] == 'ad_av' ||
         i['card_goto'] == 'ad_web_s' ||
