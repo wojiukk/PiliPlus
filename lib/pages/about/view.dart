@@ -20,6 +20,7 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/runtime_refresh.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/update.dart';
 import 'package:PiliPlus/utils/utils.dart';
@@ -252,7 +253,11 @@ Commit Hash: ${BuildConfig.commitHash}''',
               title: '设置',
               localFileName: () => 'setting_${DeviceUtils.platformName}',
               onExport: GStorage.exportAllSettings,
-              onImport: GStorage.importAllJsonSettings,
+              onImport: (data) async {
+                await GStorage.importAllJsonSettings(data);
+                // 导入后刷新内存里的过滤状态，省一次重启
+                refreshFilterState();
+              },
             ),
           ),
           ListTile(
