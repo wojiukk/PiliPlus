@@ -48,11 +48,15 @@ class GlobalData {
 
   /// 本地黑名单命中，或（开关打开时）是长 UID 账号
   /// 先把 UID 规范成 int 再查黑名单，避免接口给字符串时漏判
-  bool shouldBlockUid(Object? mid) {
+  ///
+  /// [exemptFollowed] = 已关注的 UP：黑名单仍然生效（那是你亲手加的），
+  /// 但不套用「按位数屏蔽」——关注了就不该因为注册晚被整片挡掉
+  bool shouldBlockUid(Object? mid, {bool exemptFollowed = false}) {
     final uid = uidOf(mid);
     if (uid == null) return false;
-    return blackMids.contains(uid) ||
-        (blockSnowflakeUid && isSnowflakeUid(uid));
+    if (blackMids.contains(uid)) return true;
+    if (exemptFollowed) return false;
+    return blockSnowflakeUid && isSnowflakeUid(uid);
   }
 
   // 私有构造函数
