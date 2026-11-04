@@ -90,10 +90,12 @@ class DynamicsDataModel {
             GlobalData().isBlacklisted(item.modules.moduleAuthor?.mid)) {
           continue;
         }
-        // 转发：原作者被屏蔽时，转发内容也不该出现
+        // 转发：原作者在本地黑名单里才整条丢掉。
+        // 这里同样不套用「按 UID 位数屏蔽」——关注的人转了一条新号的动态，
+        // 被吞掉的是你关注的那个人的动态，代价不对等
         if (type != DynamicsTabType.up &&
             item.orig != null &&
-            GlobalData().shouldBlockUid(
+            GlobalData().isBlacklisted(
               item.orig!.modules.moduleAuthor?.mid,
             )) {
           continue;
