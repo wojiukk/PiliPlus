@@ -328,7 +328,7 @@ class WebDav {
       final skipped = res.skippedPatterns;
       final skippedTip = skipped.isEmpty
           ? ''
-          : '\n⚠️ 这几条含括号分组，没合并，需手动核对：${skipped.join('、')}';
+          : '\n⚠️ 这几条规则没能无损合并，请核对：${skipped.join('、')}';
       SmartDialog.showToast(
         '已合并过滤规则：关键词更新 ${res.patterns} 组 / '
         '直播词 ${res.liveWords} 个 / 弹幕词 ${res.danmakuWords} 个 / '
