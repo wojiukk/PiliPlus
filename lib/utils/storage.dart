@@ -206,10 +206,11 @@ abstract final class GStorage {
   static const String _filterRulesKey = 'filterRules';
   static const String _filterRulesVersionKey = 'version';
 
-  /// 导出过滤规则：七个键，独立于整包设置
+  /// 导出过滤规则：关键词/标签/开关/阈值，独立于整包设置
   static String exportFilterRules() => Utils.jsonEncoder.convert({
-    _filterRulesVersionKey: 1,
+    _filterRulesVersionKey: 2,
     _filterRulesKey: {
+      // —— 关键词 ——
       SettingBoxKey.banWordForReply: Pref.banWordForReply,
       SettingBoxKey.banWordForRecommend: Pref.banWordForRecommend,
       SettingBoxKey.banWordForZone: Pref.banWordForZone,
@@ -217,9 +218,25 @@ abstract final class GStorage {
       SettingBoxKey.banWordForDyn: Pref.banWordForDyn,
       SettingBoxKey.liveBlockKeywords: Pref.liveBlockKeywordsRaw,
       SettingBoxKey.danmakuBlockWords: Pref.danmakuBlockWordsRaw,
-      SettingBoxKey.allowZones: Pref.allowZonesRaw,
       SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
+      SettingBoxKey.blockFansMedal: Pref.blockFansMedalRaw,
       SettingBoxKey.superChatMinPrice: Pref.superChatMinPrice,
+      // —— 屏蔽开关（恢复时覆盖本地）——
+      SettingBoxKey.blockSnowflakeUid: Pref.blockSnowflakeUid,
+      SettingBoxKey.applyFilterToRelatedVideos: Pref.applyFilterToRelatedVideos,
+      SettingBoxKey.exemptFilterForFollowed: Pref.exemptFilterForFollowed,
+      SettingBoxKey.antiGoodsDyn: Pref.antiGoodsDyn,
+      SettingBoxKey.antiGoodsReply: Pref.antiGoodsReply,
+      SettingBoxKey.blockAtOnlyReply: Pref.blockAtOnlyReply,
+      // 键名与 up_stat_filter.dart 里的常量保持一致
+      'blockLowUploads': setting.get('blockLowUploads', defaultValue: false),
+      // —— 阈值 ——
+      SettingBoxKey.minDurationForRcmd: Pref.minDurationForRcmd,
+      SettingBoxKey.minPlayForRcmd: Pref.minPlayForRcmd,
+      SettingBoxKey.minLikeRatioForRecommend: Pref.minLikeRatioForRecommend,
+      SettingBoxKey.blockReplyAtCount: Pref.blockReplyAtCount,
+      SettingBoxKey.blockReplyLevel: Pref.blockReplyLevel,
+      'minUpUploads': setting.get('minUpUploads', defaultValue: 10),
     },
   });
 
@@ -282,6 +299,7 @@ abstract final class GStorage {
     int danmakuWords,
     int tags,
     int scPrice,
+    int switches,
   })
   mergeFilterRules(Map<String, dynamic> remote) {
     String remoteText(String key) {
@@ -322,14 +340,40 @@ abstract final class GStorage {
     );
     Pref.blockSearchTags = tags.toSet();
 
-    // 分区白名单是"只保留"，做并集只会越同步越宽松，
-    // 所以只在本地为空时导入，否则保留本地那一份
-    final remoteZones = _mergeWords(
-      '',
-      remoteText(SettingBoxKey.allowZones),
+    // 粉丝牌名单同样是"越多挡得越多"，走并集
+    final medals = _mergeWords(
+      Pref.blockFansMedalRaw,
+      remoteText(SettingBoxKey.blockFansMedal),
     );
-    if (Pref.allowZonesRaw.trim().isEmpty && remoteZones.isNotEmpty) {
-      setting.put(SettingBoxKey.allowZones, remoteZones.join('\n'));
+    if (medals.join('\n') != Pref.blockFansMedalRaw) {
+      setting.put(SettingBoxKey.blockFansMedal, medals.join('\n'));
+    }
+
+    // 开关与阈值：直接采用备份里的值。
+    // 这类值没有"并集"可言——取更严或取更宽都会让两台设备互相拉扯，
+    // 最后既不是这台也不是那台，反而更难预期。
+    var switches = 0;
+    for (final key in const [
+      SettingBoxKey.blockSnowflakeUid,
+      SettingBoxKey.applyFilterToRelatedVideos,
+      SettingBoxKey.exemptFilterForFollowed,
+      SettingBoxKey.antiGoodsDyn,
+      SettingBoxKey.antiGoodsReply,
+      SettingBoxKey.blockAtOnlyReply,
+      SettingBoxKey.minDurationForRcmd,
+      SettingBoxKey.minPlayForRcmd,
+      SettingBoxKey.minLikeRatioForRecommend,
+      SettingBoxKey.blockReplyAtCount,
+      SettingBoxKey.blockReplyLevel,
+      'blockLowUploads',
+      'minUpUploads',
+    ]) {
+      if (!remote.containsKey(key)) continue;
+      final value = remote[key];
+      if (value == null || value is bool || value is num) {
+        setting.put(key, value);
+        switches++;
+      }
     }
 
     // 金额阈值取两者较大值：屏蔽得更彻底（想反向合并可改成 min）
@@ -349,6 +393,7 @@ abstract final class GStorage {
       danmakuWords: danmakuWords.length,
       tags: tags.length,
       scPrice: scPrice,
+      switches: switches,
     );
   }
 
