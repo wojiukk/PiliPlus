@@ -92,10 +92,18 @@ class RcmdController extends CommonListController {
           }
           // 旧列表是"当时"过滤过的，现在设置可能变了，
           // 复用前必须重跑：账号黑名单 + 分区（黑名单/白名单）+ 推荐过滤
+          // 已关注豁免的口径与 VideoHttp 里一致：只免"位数"，黑名单照旧
           final kept = response
               .where((e) {
                 if (e is! BaseRcmdVideoItemModel) return false;
-                if (GlobalData().shouldBlockUid(e.owner.mid)) return false;
+                final exempt =
+                    e.isFollowed && RecommendFilter.exemptFilterForFollowed;
+                if (GlobalData().shouldBlockUid(
+                  e.owner.mid,
+                  exemptFollowed: exempt,
+                )) {
+                  return false;
+                }
                 if (!VideoHttp.allowZone(e.tname)) return false;
                 return !RecommendFilter.filterWithExempt(e);
               })
