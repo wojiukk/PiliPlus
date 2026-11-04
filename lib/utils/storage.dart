@@ -269,14 +269,44 @@ abstract final class GStorage {
   static bool _canSplitMerge(String pattern) =>
       !pattern.contains('(') && !pattern.contains(')');
 
-  /// 正则关键词按 | 求并集；合并结果非法时保留本地，避免启动时崩溃
-  static String _mergePattern(String local, String remote) {
+  /// 正则关键词按 | 求并集；合并结果非法时保留本地，避免启动时崩溃。
+  /// [skipped] = 远端有内容但没合上（含分组或合并后非法），调用方要提示用户，
+  /// 否则用户会以为"多设备已同步"，其实还差着。
+  static ({String text, bool skipped}) _mergePattern(String local, String remote) {
     final remoteText = remote.trim();
-    if (remoteText.isEmpty) return local;
+    if (remoteText.isEmpty) return (text: local, skipped: false);
     if (local.trim().isEmpty) {
-      return _isValidPattern(remoteText) ? remoteText : local;
+      return (
+        text: _isValidPattern(remoteText) ? remoteText : local,
+        skipped: false,
+      );
     }
-    if (!_canSplitMerge(local) || !_canSplitMerge(remoteText)) return local;
+    if (!_canSplitMerge(local) || !_canSplitMerge(remoteText)) {
+      // 一侧带分组、另一侧是纯词表：把词表里"分组那侧还没有"的词追加在后面。
+      // 只追加、不拆分，所以不会改坏表达式；已存在的词靠 contains 判断，避免越并越长
+      final String base;
+      final String words;
+      if (!_canSplitMerge(local) && _canSplitMerge(remoteText)) {
+        base = local.trim();
+        words = remoteText;
+      } else if (_canSplitMerge(local) && !_canSplitMerge(remoteText)) {
+        base = remoteText.trim();
+        words = local;
+      } else {
+        // 两边都带分组：不猜，保留本地并告诉用户
+        return (text: local, skipped: true);
+      }
+      final extra = words
+          .split('|')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty && !base.contains(e))
+          .toList();
+      if (extra.isEmpty) return (text: local, skipped: false);
+      final merged = '$base|${extra.join('|')}';
+      return _isValidPattern(merged)
+          ? (text: merged, skipped: false)
+          : (text: local, skipped: true);
+    }
     final seen = <String>{};
     final parts = <String>[];
     for (final raw in [...local.split('|'), ...remoteText.split('|')]) {
@@ -285,7 +315,8 @@ abstract final class GStorage {
       if (seen.add(part.toLowerCase())) parts.add(part);
     }
     final merged = parts.join('|');
-    return _isValidPattern(merged) ? merged : local;
+    if (!_isValidPattern(merged)) return (text: local, skipped: true);
+    return (text: merged, skipped: false);
   }
 
   /// 关键词/标签按小写去重，保留用户原本写法
@@ -306,6 +337,7 @@ abstract final class GStorage {
     int tags,
     int scPrice,
     int switches,
+    List<String> skippedPatterns,
   })
   mergeFilterRules(Map<String, dynamic> remote) {
     String remoteText(String key) {
@@ -314,19 +346,26 @@ abstract final class GStorage {
     }
 
     var patterns = 0;
-    void mergePatternKey(String key, String local) {
-      final merged = _mergePattern(local, remoteText(key));
-      if (merged != local) {
-        setting.put(key, merged);
+    final skippedPatterns = <String>[];
+    void mergePatternKey(String key, String local, String label) {
+      final res = _mergePattern(local, remoteText(key));
+      if (res.text != local) {
+        setting.put(key, res.text);
         patterns++;
+      } else if (res.skipped) {
+        skippedPatterns.add(label);
       }
     }
 
-    mergePatternKey(SettingBoxKey.banWordForReply, Pref.banWordForReply);
-    mergePatternKey(SettingBoxKey.banWordForRecommend, Pref.banWordForRecommend);
-    mergePatternKey(SettingBoxKey.banWordForZone, Pref.banWordForZone);
-    mergePatternKey(SettingBoxKey.banUpNames, Pref.banUpNames);
-    mergePatternKey(SettingBoxKey.banWordForDyn, Pref.banWordForDyn);
+    mergePatternKey(SettingBoxKey.banWordForReply, Pref.banWordForReply, '评论');
+    mergePatternKey(
+      SettingBoxKey.banWordForRecommend,
+      Pref.banWordForRecommend,
+      '标题',
+    );
+    mergePatternKey(SettingBoxKey.banWordForZone, Pref.banWordForZone, '分区');
+    mergePatternKey(SettingBoxKey.banUpNames, Pref.banUpNames, 'UP名');
+    mergePatternKey(SettingBoxKey.banWordForDyn, Pref.banWordForDyn, '动态');
 
     final liveWords = _mergeWords(
       Pref.liveBlockKeywordsRaw,
@@ -391,6 +430,7 @@ abstract final class GStorage {
       tags: tags.length,
       scPrice: scPrice,
       switches: switches,
+      skippedPatterns: skippedPatterns,
     );
   }
 
