@@ -1,15 +1,10 @@
 import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/zone_filter.dart';
-import 'package:PiliPlus/utils/zone_groups.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 
@@ -123,7 +118,8 @@ List<SettingsModel> get recommendSettings => [
   SwitchModel(
     title: '按 UID 位数屏蔽（16 位及以上）',
     subtitle:
-        '作用域: 评论、首页推荐、热门/排行、相关视频、搜索结果、动态、直播弹幕\n'
+        '作用域: 评论、首页推荐、热门/排行、相关视频、搜索结果、直播弹幕\n'
+        '动态流不套用这条规则（那里全是关注的人）\n'
         '16 位及以上属于「长 UID」号，多为 2023 年后注册；只是近似，不等于注册时间\n'
         '纯本地判断，默认关闭',
     leading: const Icon(Icons.block),
@@ -131,159 +127,9 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: false,
     onChanged: (value) => GlobalData().blockSnowflakeUid = value,
   ),
-  NormalModel(
-    title: '只看这些分区（点选）',
-    leading: const Icon(Icons.playlist_add_check),
-    getSubtitle: () {
-      final zones = Pref.allowZones;
-      if (zones.isEmpty) return '未启用｜点这里勾选想看的分类';
-      final shown = zones.take(4).join('、');
-      return '已勾选 ${zones.length} 个：$shown${zones.length > 4 ? '…' : ''}';
-    },
-    onTap: (context, setState) => showZonePicker(context, setState),
-  ),
   getBlockTagsModel(
     title: '搜索标签黑名单',
     key: SettingBoxKey.blockSearchTags,
     scope: '搜索结果（综合/视频）',
   ),
 ];
-
-/// 分区白名单选择框：选项来自 ZoneFilter 收集到的真实分区名
-void showZonePicker(BuildContext context, VoidCallback setState) {
-  ZoneFilter.flush();
-  showDialog(
-    context: context,
-    builder: (_) => const _ZonePickerDialog(),
-  ).then((_) => setState());
-}
-
-class _ZonePickerDialog extends StatefulWidget {
-  const _ZonePickerDialog();
-
-  @override
-  State<_ZonePickerDialog> createState() => _ZonePickerDialogState();
-}
-
-class _ZonePickerDialogState extends State<_ZonePickerDialog> {
-  late final List<String> _available = ZoneFilter.seen.toList()..sort();
-  late final Set<String> _selected = {...Pref.allowZones};
-  final _customCtr = TextEditingController();
-
-  @override
-  void dispose() {
-    _customCtr.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final extra = _customCtr.text
-        .split(RegExp(r'[,，\s]+'))
-        .map((e) => e.trim().toLowerCase())
-        .where((e) => e.isNotEmpty);
-    _selected.addAll(extra);
-    Pref.allowZones = _selected;
-    ZoneFilter.reload();
-    Get.back();
-    SmartDialog.showToast(
-      _selected.isEmpty ? '已关闭白名单' : '已保存 ${_selected.length} 个分区',
-    );
-  }
-
-  bool _groupOn(String group) {
-    final names = zoneGroupNames(group);
-    return names.isNotEmpty && names.every(_selected.contains);
-  }
-
-  void _toggleGroup(String group, bool on) {
-    final names = zoneGroupNames(group);
-    if (on) {
-      _selected.addAll(names);
-    } else {
-      _selected.removeAll(names);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.labelLarge?.copyWith(
-      color: theme.colorScheme.primary,
-    );
-    return AlertDialog(
-      constraints: Style.dialogFixedConstraints,
-      title: const Text('只看这些分区'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '勾选后，推荐里只保留这些分区，其他全部隐藏；一个都不勾 = 不启用。\n'
-                '按大类勾选 = 该大类下所有子分区一起放行。\n'
-                '接口没返回分区名的内容仍会保留（避免整页清空）。',
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              Text('按大类选', style: labelStyle),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final group in zoneGroups.keys)
-                    FilterChip(
-                      label: Text(group),
-                      selected: _groupOn(group),
-                      onSelected: (v) => setState(() => _toggleGroup(group, v)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text('具体分区（刷到过的，可单独勾）', style: labelStyle),
-              const SizedBox(height: 6),
-              if (_available.isEmpty)
-                Text(
-                  '还没收集到具体分区，先回首页刷几屏；上面的大类可以先勾。',
-                  style: theme.textTheme.bodySmall,
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final z in _available)
-                      FilterChip(
-                        label: Text(z),
-                        selected: _selected.contains(z.toLowerCase()),
-                        onSelected: (v) => setState(() {
-                          if (v) {
-                            _selected.add(z.toLowerCase());
-                          } else {
-                            _selected.remove(z.toLowerCase());
-                          }
-                        }),
-                      ),
-                  ],
-                ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _customCtr,
-                decoration: const InputDecoration(
-                  labelText: '手动补充（必须填完整分区名，逗号分隔）',
-                  isDense: true,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: Get.back, child: const Text('取消')),
-        TextButton(onPressed: _save, child: const Text('保存')),
-      ],
-    );
-  }
-}
