@@ -14,7 +14,6 @@ abstract final class ReplyGrpc {
   static var blockAtOnlyReply = Pref.blockAtOnlyReply;
   static var blockReplyAtCount = Pref.blockReplyAtCount;
   static var blockReplyLevel = Pref.blockReplyLevel;
-  static Set<String> blockFansMedals = Pref.blockFansMedals;
   static RegExp replyRegExp = RegExp(
     Pref.banWordForReply,
     caseSensitive: false,
@@ -112,20 +111,6 @@ abstract final class ReplyGrpc {
     return member.level.toInt() <= maxLevel;
   }
 
-  /// 按粉丝牌名字屏蔽（牌子属于观众，只有评论能用到）
-  /// 支持模糊匹配：输入的片段包含在牌子名里就算命中，方便只记得个大概
-  static bool _blockFansMedal(ReplyInfo reply) {
-    if (blockFansMedals.isEmpty) return false;
-    final member = reply.member;
-    if (!member.hasFansMedalLevel()) return false;
-    final name = member.fansMedalName;
-    if (name.isEmpty) return false;
-    for (final keyword in blockFansMedals) {
-      if (name.contains(keyword)) return true;
-    }
-    return false;
-  }
-
   /// 账号级屏蔽统一入口：本地黑名单 + 16 位ID（2023 年后注册）
   /// 自己永远跳过；16 位规则额外豁免 UP 本人，否则新 UP 的评论区会整片空掉
   static bool _blockReplyUid(ReplyInfo reply, Int64? upMid) {
@@ -147,7 +132,6 @@ abstract final class ReplyGrpc {
     }
     return _blockReplyUid(reply, upMid) ||
         _blockReplyLevel(reply, upMid) ||
-        _blockFansMedal(reply) ||
         _blockReplyAtCount(reply) ||
         _blockAtOnlyReply(reply) ||
         (antiGoodsReply && _needRemoveGoodGrpc(reply)) ||
