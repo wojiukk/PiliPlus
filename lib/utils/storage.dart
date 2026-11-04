@@ -263,15 +263,11 @@ abstract final class GStorage {
     }
   }
 
-  /// 只有"纯词表"（`原神|崩坏` 这种）才适合按 | 拆分合并。
-  /// 含分组、字符类或转义的正则，拆分点未必是顶层分支，
-  /// 拼回去可能改含义，这类一律不合并：宁可少合并，也不改坏表达式。
+  /// 不带括号分组的正则才能安全按 | 拆分合并：
+  /// `原神|崩坏`、`\[大笑\]|\[狗头\]` 都行（转义竖线拆开后拼回是原样）。
+  /// 带分组的（`(原神|崩坏)3`）拆分点不在顶层，拼回去可能改含义，这类一律不合并。
   static bool _canSplitMerge(String pattern) =>
-      !pattern.contains('(') &&
-      !pattern.contains(')') &&
-      !pattern.contains('[') &&
-      !pattern.contains(']') &&
-      !pattern.contains('\\');
+      !pattern.contains('(') && !pattern.contains(')');
 
   /// 正则关键词按 | 求并集；合并结果非法时保留本地，避免启动时崩溃
   static String _mergePattern(String local, String remote) {
