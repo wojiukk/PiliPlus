@@ -219,7 +219,6 @@ abstract final class GStorage {
       SettingBoxKey.liveBlockKeywords: Pref.liveBlockKeywordsRaw,
       SettingBoxKey.danmakuBlockWords: Pref.danmakuBlockWordsRaw,
       SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
-      SettingBoxKey.blockFansMedal: Pref.blockFansMedalRaw,
       SettingBoxKey.superChatMinPrice: Pref.superChatMinPrice,
       // —— 屏蔽开关（恢复时覆盖本地）——
       SettingBoxKey.blockSnowflakeUid: Pref.blockSnowflakeUid,
@@ -264,6 +263,16 @@ abstract final class GStorage {
     }
   }
 
+  /// 只有"纯词表"（`原神|崩坏` 这种）才适合按 | 拆分合并。
+  /// 含分组、字符类或转义的正则，拆分点未必是顶层分支，
+  /// 拼回去可能改含义，这类一律不合并：宁可少合并，也不改坏表达式。
+  static bool _canSplitMerge(String pattern) =>
+      !pattern.contains('(') &&
+      !pattern.contains(')') &&
+      !pattern.contains('[') &&
+      !pattern.contains(']') &&
+      !pattern.contains('\\');
+
   /// 正则关键词按 | 求并集；合并结果非法时保留本地，避免启动时崩溃
   static String _mergePattern(String local, String remote) {
     final remoteText = remote.trim();
@@ -271,6 +280,7 @@ abstract final class GStorage {
     if (local.trim().isEmpty) {
       return _isValidPattern(remoteText) ? remoteText : local;
     }
+    if (!_canSplitMerge(local) || !_canSplitMerge(remoteText)) return local;
     final seen = <String>{};
     final parts = <String>[];
     for (final raw in [...local.split('|'), ...remoteText.split('|')]) {
@@ -339,15 +349,6 @@ abstract final class GStorage {
       remoteText(SettingBoxKey.blockSearchTags),
     );
     Pref.blockSearchTags = tags.toSet();
-
-    // 粉丝牌名单同样是"越多挡得越多"，走并集
-    final medals = _mergeWords(
-      Pref.blockFansMedalRaw,
-      remoteText(SettingBoxKey.blockFansMedal),
-    );
-    if (medals.join('\n') != Pref.blockFansMedalRaw) {
-      setting.put(SettingBoxKey.blockFansMedal, medals.join('\n'));
-    }
 
     // 开关与阈值：直接采用备份里的值。
     // 这类值没有"并集"可言——取更严或取更宽都会让两台设备互相拉扯，
