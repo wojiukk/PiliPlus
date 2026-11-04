@@ -83,9 +83,11 @@ class DynamicsDataModel {
             tempBannedList!.contains(item.modules.moduleAuthor?.mid)) {
           continue;
         }
-        // 本地黑名单 / 16 位ID；用户主页（up）不处理，避免把本人动态挡掉
+        // 关注流只按本地黑名单挡，不套用「按 UID 位数屏蔽」：
+        // 这条流里全是关注的人，16 位 mid 的新号（2024 年后注册）会被整条吞掉；
+        // 用户主页（up）不处理，避免把本人动态挡掉
         if (type != DynamicsTabType.up &&
-            GlobalData().shouldBlockUid(item.modules.moduleAuthor?.mid)) {
+            GlobalData().isBlacklisted(item.modules.moduleAuthor?.mid)) {
           continue;
         }
         // 转发：原作者被屏蔽时，转发内容也不该出现
