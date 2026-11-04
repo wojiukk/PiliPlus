@@ -265,58 +265,49 @@ abstract final class GStorage {
 
   /// 不带括号分组的正则才能安全按 | 拆分合并：
   /// `原神|崩坏`、`\[大笑\]|\[狗头\]` 都行（转义竖线拆开后拼回是原样）。
-  /// 带分组的（`(原神|崩坏)3`）拆分点不在顶层，拼回去可能改含义，这类一律不合并。
+  /// 带分组的（`(原神|崩坏)3`）拆分点不在顶层，拼回去可能改含义，这类不做拆分。
   static bool _canSplitMerge(String pattern) =>
       !pattern.contains('(') && !pattern.contains(')');
 
-  /// 正则关键词按 | 求并集；合并结果非法时保留本地，避免启动时崩溃。
-  /// [skipped] = 远端有内容但没合上（含分组或合并后非法），调用方要提示用户，
-  /// 否则用户会以为"多设备已同步"，其实还差着。
+  /// 正则规则合并。返回 [skipped] = 合并没能无损完成，调用方要提示用户核对。
+  ///
+  /// 三种情况：
+  /// 1. 两侧都是纯词表 → 按 | 拆开去重求并集（真正无损）
+  /// 2. 任一侧含分组 → **不做并集，按备份覆盖**。
+  ///    正则无法可靠求并集（`contains` 不等于"语义已覆盖"：`(原神|崩坏)` 包含
+  ///    子串"原神"，但匹配行为不等于单独的 `原神`），覆盖是幂等的、也不会越并越长。
+  ///    覆盖会把本地独有的词冲掉，这种要置 [skipped] 让用户核对
+  /// 3. 远端内容编译不过 → 保留本地并置 [skipped]，不能假装合并成功
   static ({String text, bool skipped}) _mergePattern(String local, String remote) {
     final remoteText = remote.trim();
     if (remoteText.isEmpty) return (text: local, skipped: false);
+
     if (local.trim().isEmpty) {
-      return (
-        text: _isValidPattern(remoteText) ? remoteText : local,
-        skipped: false,
-      );
+      final ok = _isValidPattern(remoteText);
+      return (text: ok ? remoteText : local, skipped: !ok);
     }
-    if (!_canSplitMerge(local) || !_canSplitMerge(remoteText)) {
-      // 一侧带分组、另一侧是纯词表：把词表里"分组那侧还没有"的词追加在后面。
-      // 只追加、不拆分，所以不会改坏表达式；已存在的词靠 contains 判断，避免越并越长
-      final String base;
-      final String words;
-      if (!_canSplitMerge(local) && _canSplitMerge(remoteText)) {
-        base = local.trim();
-        words = remoteText;
-      } else if (_canSplitMerge(local) && !_canSplitMerge(remoteText)) {
-        base = remoteText.trim();
-        words = local;
-      } else {
-        // 两边都带分组：不猜，保留本地并告诉用户
-        return (text: local, skipped: true);
+
+    if (_canSplitMerge(local) && _canSplitMerge(remoteText)) {
+      final seen = <String>{};
+      final parts = <String>[];
+      for (final raw in [...local.split('|'), ...remoteText.split('|')]) {
+        final part = raw.trim();
+        if (part.isEmpty) continue;
+        if (seen.add(part.toLowerCase())) parts.add(part);
       }
-      final extra = words
-          .split('|')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty && !base.contains(e))
-          .toList();
-      if (extra.isEmpty) return (text: local, skipped: false);
-      final merged = '$base|${extra.join('|')}';
+      final merged = parts.join('|');
       return _isValidPattern(merged)
           ? (text: merged, skipped: false)
           : (text: local, skipped: true);
     }
-    final seen = <String>{};
-    final parts = <String>[];
-    for (final raw in [...local.split('|'), ...remoteText.split('|')]) {
-      final part = raw.trim();
-      if (part.isEmpty) continue;
-      if (seen.add(part.toLowerCase())) parts.add(part);
-    }
-    final merged = parts.join('|');
-    if (!_isValidPattern(merged)) return (text: local, skipped: true);
-    return (text: merged, skipped: false);
+
+    // 含分组：按备份覆盖
+    if (!_isValidPattern(remoteText)) return (text: local, skipped: true);
+    // 本地有、远端没有的片段会被冲掉，这种情况要提示
+    final lost = _splitWords(local)
+        .where((w) => !remoteText.contains(w))
+        .toList();
+    return (text: remoteText, skipped: lost.isNotEmpty);
   }
 
   /// 关键词/标签按小写去重，保留用户原本写法
