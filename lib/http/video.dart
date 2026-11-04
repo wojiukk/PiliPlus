@@ -40,6 +40,7 @@ import 'package:PiliPlus/utils/subtitle_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/wbi_sign.dart';
 import 'package:PiliPlus/utils/zone_filter.dart';
+import 'package:PiliPlus/utils/up_stat_filter.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:protobuf/protobuf.dart';
@@ -67,10 +68,15 @@ abstract final class VideoHttp {
       }),
     );
     if (res.data['code'] == 0) {
+      final items = (res.data['data']['item'] as List?) ?? const [];
+      // 投稿数屏蔽：先补查这一页的 UP（已缓存的跳过，失败放行）
+      await UpStatFilter.prefetch(items.map((e) => e['owner']?['mid']));
       List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
-      for (final i in res.data['data']['item']) {
+      for (final i in items) {
         //过滤掉live与ad，以及拉黑用户
         if (_filterWebRcmd(i)) continue;
+        // 投稿数低于下限的 UP 不显示
+        if (UpStatFilter.shouldBlock(i['owner']?['mid'])) continue;
         final videoItem = RcmdVideoItemModel.fromJson(i);
         if (!RecommendFilter.filterWithExempt(videoItem)) {
           list.add(videoItem);
@@ -184,10 +190,15 @@ abstract final class VideoHttp {
       ),
     );
     if (res.data['code'] == 0) {
+      final items = (res.data['data']['items'] as List?) ?? const [];
+      // 投稿数屏蔽：先补查这一页的 UP（已缓存的跳过，失败放行）
+      await UpStatFilter.prefetch(items.map((e) => e['args']?['up_id']));
       final list = <RcmdVideoItemAppModel>[];
-      for (final i in res.data['data']['items']) {
+      for (final i in items) {
         // 屏蔽推广和拉黑用户
         if (_filterAppRcmd(i)) continue;
+        // 投稿数低于下限的 UP 不显示
+        if (UpStatFilter.shouldBlock(i['args']?['up_id'])) continue;
         final videoItem = RcmdVideoItemAppModel.fromJson(i);
         if (!RecommendFilter.filterWithExempt(videoItem)) {
           list.add(videoItem);
