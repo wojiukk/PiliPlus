@@ -40,6 +40,12 @@ class GlobalData {
     return uid.toString().length >= snowflakeUidMinLength;
   }
 
+  /// 只查本地黑名单，不参与「按 UID 位数屏蔽」
+  bool isBlacklisted(Object? mid) {
+    final uid = uidOf(mid);
+    return uid != null && blackMids.contains(uid);
+  }
+
   /// 本地黑名单命中，或（开关打开时）是长 UID 账号
   /// 先把 UID 规范成 int 再查黑名单，避免接口给字符串时漏判
   bool shouldBlockUid(Object? mid) {
