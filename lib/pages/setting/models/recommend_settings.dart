@@ -4,6 +4,7 @@ import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/up_stat_filter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
@@ -127,9 +128,56 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: false,
     onChanged: (value) => GlobalData().blockSnowflakeUid = value,
   ),
+  SwitchModel(
+    title: '投稿数屏蔽',
+    subtitle: '投稿数低于下限的 UP 不显示（首页推荐已接；热门/相关视频暂未接）',
+    leading: const Icon(Icons.video_library_outlined),
+    setKey: UpStatFilter.enabledKey,
+    defaultVal: false,
+    onChanged: (value) => UpStatFilter.apply(enabled: value),
+  ),
+  NormalModel(
+    title: '投稿数下限',
+    leading: const Icon(Icons.numbers),
+    getSubtitle: () =>
+        '当前 ${UpStatFilter.minUploads} 条｜低于它的 UP 会被挡，点这里改',
+    onTap: (context, setState) => showUpStatThresholdDialog(context, setState),
+  ),
   getBlockTagsModel(
     title: '搜索标签黑名单',
     key: SettingBoxKey.blockSearchTags,
     scope: '搜索结果（综合/视频）',
   ),
 ];
+
+/// 投稿数下限：数字自己填，0 = 不屏蔽
+void showUpStatThresholdDialog(BuildContext context, VoidCallback setState) {
+  var text = '${UpStatFilter.minUploads}';
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('投稿数下限'),
+      content: TextFormField(
+        initialValue: text,
+        autofocus: true,
+        decoration: const InputDecoration(
+          helperText: '低于这个投稿数的 UP 不显示；0 = 不屏蔽',
+          isDense: true,
+        ),
+        onChanged: (v) => text = v,
+      ),
+      actions: [
+        TextButton(onPressed: () => Get.back(), child: const Text('取消')),
+        TextButton(
+          onPressed: () {
+            final v = int.tryParse(text.trim());
+            UpStatFilter.apply(minUploads: v ?? UpStatFilter.minUploads);
+            Get.back();
+            setState();
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    ),
+  );
+}
