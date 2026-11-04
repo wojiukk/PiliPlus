@@ -69,14 +69,20 @@ abstract final class VideoHttp {
     );
     if (res.data['code'] == 0) {
       final items = (res.data['data']['item'] as List?) ?? const [];
-      // 投稿数屏蔽：先补查这一页的 UP（已缓存的跳过，失败放行）
-      await UpStatFilter.prefetch(items.map((e) => e['owner']?['mid']));
+      // 先做不联网的过滤（广告/黑名单/长 UID/分区），
+      // 再给真正要显示的 UP 补查投稿数——否则一条都不显示的账号也会被查一遍
+      final kept = <dynamic>[
+        for (final i in items)
+          if (!_filterWebRcmd(i)) i,
+      ];
+      await UpStatFilter.prefetch(kept.map((e) => e['owner']?['mid']));
       List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
-      for (final i in items) {
-        //过滤掉live与ad，以及拉黑用户
-        if (_filterWebRcmd(i)) continue;
-        // 投稿数低于下限的 UP 不显示
-        if (UpStatFilter.shouldBlock(i['owner']?['mid'])) continue;
+      for (final i in kept) {
+        // 投稿数低于下限的 UP 不显示（已关注的 UP 豁免）
+        if (!_exemptFollowed(i) &&
+            UpStatFilter.shouldBlock(i['owner']?['mid'])) {
+          continue;
+        }
         final videoItem = RcmdVideoItemModel.fromJson(i);
         if (!RecommendFilter.filterWithExempt(videoItem)) {
           list.add(videoItem);
@@ -88,13 +94,28 @@ abstract final class VideoHttp {
     }
   }
 
+  /// 「已关注 UP 豁免」是否生效（开关在推荐流设置里，默认开）
+  /// 只豁免账号画像类规则（长 UID、投稿数），黑名单和分区规则照旧
+  static bool _exemptFollowed(dynamic i) =>
+      RecommendFilter.exemptFilterForFollowed && i['is_followed'] == 1;
+
+  /// app 端推荐没有 is_followed，已关注信息在 rcmd_reason 里
+  static bool _exemptFollowedApp(dynamic i) {
+    if (!RecommendFilter.exemptFilterForFollowed) return false;
+    final reason = i['rcmd_reason'];
+    return reason == '已关注' || reason == '新关注';
+  }
+
   static bool _filterWebRcmd(dynamic i) {
     if (i['goto'] != 'av') return true;
     // 收集分区名，供设置页点选
     ZoneFilter.note(i['tname']);
-    // 拉黑用户 / 16 位ID账号
+    // 拉黑用户 / 16 位ID账号（已关注的不按位数挡）
     if (i['owner'] != null &&
-        GlobalData().shouldBlockUid(i['owner']['mid'])) {
+        GlobalData().shouldBlockUid(
+          i['owner']['mid'],
+          exemptFollowed: _exemptFollowed(i),
+        )) {
       return true;
     }
     // 分区关键词：网页推荐这条路径原来没查分区，等于"分区过滤"对它无效
@@ -122,7 +143,10 @@ abstract final class VideoHttp {
       return true;
     }
     if (i['args'] != null &&
-        GlobalData().shouldBlockUid(i['args']['up_id'])) {
+        GlobalData().shouldBlockUid(
+          i['args']['up_id'],
+          exemptFollowed: _exemptFollowedApp(i),
+        )) {
       return true;
     }
     // 收集分区名，供设置页点选
@@ -191,14 +215,19 @@ abstract final class VideoHttp {
     );
     if (res.data['code'] == 0) {
       final items = (res.data['data']['items'] as List?) ?? const [];
-      // 投稿数屏蔽：先补查这一页的 UP（已缓存的跳过，失败放行）
-      await UpStatFilter.prefetch(items.map((e) => e['args']?['up_id']));
+      // 先做不联网的过滤，再给剩下的 UP 补查投稿数
+      final kept = <dynamic>[
+        for (final i in items)
+          if (!_filterAppRcmd(i)) i,
+      ];
+      await UpStatFilter.prefetch(kept.map((e) => e['args']?['up_id']));
       final list = <RcmdVideoItemAppModel>[];
-      for (final i in items) {
-        // 屏蔽推广和拉黑用户
-        if (_filterAppRcmd(i)) continue;
-        // 投稿数低于下限的 UP 不显示
-        if (UpStatFilter.shouldBlock(i['args']?['up_id'])) continue;
+      for (final i in kept) {
+        // 投稿数低于下限的 UP 不显示（已关注的 UP 豁免）
+        if (!_exemptFollowedApp(i) &&
+            UpStatFilter.shouldBlock(i['args']?['up_id'])) {
+          continue;
+        }
         final videoItem = RcmdVideoItemAppModel.fromJson(i);
         if (!RecommendFilter.filterWithExempt(videoItem)) {
           list.add(videoItem);
