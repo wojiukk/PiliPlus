@@ -34,6 +34,12 @@ abstract final class UpStatFilter {
 
   static bool get active => enabled && minUploads > 0;
 
+  /// 从设置重新读取（WebDAV 恢复 / 整包导入后调用）
+  static void reload() {
+    enabled = GStorage.setting.get(enabledKey, defaultValue: false) == true;
+    minUploads = _readMin();
+  }
+
   /// 没查过的先放行；查过且低于阈值才拦
   static bool shouldBlock(Object? mid) {
     if (!active) return false;
