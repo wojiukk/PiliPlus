@@ -322,17 +322,19 @@ class WebDav {
         SmartDialog.showToast('备份里没有过滤规则');
         return;
       }
-      // 过滤规则里的白名单只在"本地为空"时才会被导入，这里记一下结果
-      final hadZones = Pref.allowZonesRaw.trim().isNotEmpty;
       final res = GStorage.mergeFilterRules(rules);
-      final importedZones = !hadZones && Pref.allowZonesRaw.trim().isNotEmpty;
-      // 关键词/白名单都是启动时读进静态字段的，这里统一刷新一次
+      // 关键词/开关/阈值都是启动时读进静态字段的，这里统一刷新一次
       refreshFilterState();
+      final skipped = res.skippedPatterns;
+      final skippedTip = skipped.isEmpty
+          ? ''
+          : '\n⚠️ 这几条含括号分组，没合并，需手动核对：${skipped.join('、')}';
       SmartDialog.showToast(
         '已合并过滤规则：关键词更新 ${res.patterns} 组 / '
         '直播词 ${res.liveWords} 个 / 弹幕词 ${res.danmakuWords} 个 / '
-        '标签 ${res.tags} 个 / SC 阈值 ${res.scPrice} 元'
-        '${importedZones ? '（已导入分区白名单 ${Pref.allowZones.length} 个）' : ''}',
+        '标签 ${res.tags} 个 / SC 阈值 ${res.scPrice} 元 / '
+        '开关与阈值 ${res.switches} 项'
+        '$skippedTip',
       );
     } catch (e) {
       SmartDialog.showToast('恢复失败: $e');
