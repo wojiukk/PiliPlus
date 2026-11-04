@@ -75,7 +75,12 @@ abstract final class VideoHttp {
         for (final i in items)
           if (!_filterWebRcmd(i)) i,
       ];
-      await UpStatFilter.prefetch(kept.map((e) => e['owner']?['mid']));
+      // 已关注的 UP 本来就不会被投稿数规则挡，不必为它发请求
+      await UpStatFilter.prefetch(
+        kept
+            .where((e) => !_exemptFollowed(e))
+            .map((e) => e['owner']?['mid']),
+      );
       List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
       for (final i in kept) {
         // 投稿数低于下限的 UP 不显示（已关注的 UP 豁免）
@@ -220,7 +225,12 @@ abstract final class VideoHttp {
         for (final i in items)
           if (!_filterAppRcmd(i)) i,
       ];
-      await UpStatFilter.prefetch(kept.map((e) => e['args']?['up_id']));
+      // 已关注的 UP 本来就不会被投稿数规则挡，不必为它发请求
+      await UpStatFilter.prefetch(
+        kept
+            .where((e) => !_exemptFollowedApp(e))
+            .map((e) => e['args']?['up_id']),
+      );
       final list = <RcmdVideoItemAppModel>[];
       for (final i in kept) {
         // 投稿数低于下限的 UP 不显示（已关注的 UP 豁免）
