@@ -4,6 +4,7 @@ import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/up_stat_filter.dart';
 import 'package:PiliPlus/utils/zone_filter.dart';
 
 /// 单条正则单独兜底：坏一条不影响其它条，避免"规则半新半旧"
@@ -34,7 +35,8 @@ void refreshFilterState() {
   ReplyGrpc.blockAtOnlyReply = Pref.blockAtOnlyReply;
   ReplyGrpc.blockReplyAtCount = Pref.blockReplyAtCount;
   ReplyGrpc.blockReplyLevel = Pref.blockReplyLevel;
-  ReplyGrpc.blockFansMedals = Pref.blockFansMedals;
+  DynamicsDataModel.antiGoodsDyn = Pref.antiGoodsDyn;
+  UpStatFilter.reload();
 
   RecommendFilter.rcmdRegExp = _buildRegExp(
     Pref.banWordForRecommend,
