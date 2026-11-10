@@ -2,6 +2,7 @@ import 'package:PiliPlus/http/api.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:dio/dio.dart' show Options;
 
 /// 按「投稿数」屏蔽：投稿数低于阈值的 UP，其视频不进列表。
 ///
@@ -32,6 +33,9 @@ abstract final class UpStatFilter {
   /// mid → 投稿数；-1 = 查过但失败，本次会话不再重试
   static final Map<int, int> _cache = {};
 
+  /// card 接口一旦返回 412（风控），本次会话就别再一个个撞了
+  static bool _riskBlocked = false;
+
   static bool get active => enabled && minUploads > 0;
 
   /// 从设置重新读取（WebDAV 恢复 / 整包导入后调用）
@@ -52,7 +56,7 @@ abstract final class UpStatFilter {
 
   /// 给这一页出现的 UP 补查投稿数；任何异常都吞掉，不影响列表
   static Future<void> prefetch(Iterable<Object?> mids) async {
-    if (!active) return;
+    if (!active || _riskBlocked) return;
     final todo = <int>[];
     for (final m in mids) {
       final uid = GlobalData.uidOf(m);
@@ -62,9 +66,10 @@ abstract final class UpStatFilter {
       todo.add(uid);
     }
     if (todo.isEmpty) return;
-    // 并发 4：一页 20 条通常 12~15 个 UP，一次会话第一屏多几百毫秒
-    for (var i = 0; i < todo.length; i += 4) {
-      await Future.wait(todo.skip(i).take(4).map(_fetch));
+    // 并发 2：card 接口风控很紧，一次扔 4 个容易被 412 挡回来
+    for (var i = 0; i < todo.length; i += 2) {
+      if (_riskBlocked) break;
+      await Future.wait(todo.skip(i).take(2).map(_fetch));
     }
   }
 
@@ -75,8 +80,12 @@ abstract final class UpStatFilter {
           .get(
             Api.memberCardInfo,
             queryParameters: {'mid': mid, 'photo': false},
+            // silent：失败不弹「服务器异常 + URL」，这种后台补查查不到就当没查到
+            options: Options(extra: {'silent': true}),
           )
           .timeout(const Duration(milliseconds: 1200));
+      // 412 = 风控，本次会话直接停，别整页一个个撞
+      if (res.statusCode == 412) _riskBlocked = true;
       if (res.data['code'] == 0) {
         final count = res.data['data']?['archive_count'];
         final n = count is num ? count.toInt() : int.tryParse('$count');
@@ -100,5 +109,7 @@ abstract final class UpStatFilter {
       UpStatFilter.minUploads = minUploads < 0 ? 0 : minUploads;
       GStorage.setting.put(minKey, UpStatFilter.minUploads);
     }
+    // 用户手动改设置，说明愿意再试一次：解除本会话的风控锁定
+    _riskBlocked = false;
   }
 }
