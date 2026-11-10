@@ -161,6 +161,9 @@ class AccountManager extends Interceptor {
   }
 
   static void toast(DioException err) {
+    // 后台补查类请求带 extra['silent'] = true：失败静默处理（调用方自己会兜底），
+    // 不然一屏十几个 UP 查投稿数，风控 412 会把「服务器异常 + URL」弹满屏
+    if (err.requestOptions.extra['silent'] == true) return;
     const skipShow = [
       'heartbeat',
       'history/report',
