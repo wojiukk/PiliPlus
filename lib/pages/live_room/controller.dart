@@ -78,11 +78,11 @@ const int _kSafeTrimIndex = 200;
 class LiveRoomController extends GetxController
     with
         _LiveDataMixin,
-        _LiveSCMixin,
         _LiveTimeMixin,
         _LiveTraceMixin,
         _LiveMedalMixin,
         _LiveBlockMixin,
+        _LiveSCMixin,
         _LiveDMMixin,
         _LiveDMTrimMixin,
         _LiveDMStreamMixin,

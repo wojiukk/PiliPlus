@@ -183,6 +183,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   onDelete: (item, subIndex) =>
                       controller.onRemove(index, item, subIndex),
                   upMid: controller.upMid,
+                  onBlockUser: controller.blockUser,
                   getTag: () => heroTag,
                   onCheckReply: controller.onCheckReply,
                   onToggleTop: (item) => controller.onToggleTop(

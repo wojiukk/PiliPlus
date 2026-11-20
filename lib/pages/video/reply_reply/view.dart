@@ -132,6 +132,9 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       ),
       tag: _tag,
     );
+    if (widget.firstFloor case final root?) {
+      controller.firstFloor.value = root;
+    }
   }
 
   @override
@@ -180,7 +183,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     );
   }
 
-  ReplyInfo? get firstFloor => widget.firstFloor ?? controller.firstFloor.value;
+  ReplyInfo? get firstFloor => controller.firstFloor.value;
 
   ScrollController get scrollController =>
       controller.nestedController ?? controller.scrollController;
@@ -196,17 +199,10 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           if (!isDialogue) ...[
-            if ((widget.firstFloor ?? controller.firstFloor.value)
-                case final firstFloor?)
-              _header(firstFloor)
-            else
-              Obx(() {
-                final firstFloor = controller.firstFloor.value;
-                if (firstFloor == null) {
-                  return const SliverToBoxAdapter();
-                }
-                return _header(firstFloor);
-              }),
+            Obx(() {
+              final root = firstFloor;
+              return root == null ? const SliverToBoxAdapter() : _header(root);
+            }),
             _sortWidget(theme.colorScheme),
           ],
           Obx(
@@ -228,6 +224,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
             onReply: (replyItem) => controller.onReply(replyItem, index: -1),
             upMid: widget.upMid ?? controller.upMid,
             onCheckReply: controller.onCheckReply,
+            onBlockUser: controller.blockUser,
           ),
         ),
         SliverToBoxAdapter(
@@ -359,6 +356,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                 replyLevel: 2,
                 upMid: controller.upMid,
                 onCheckReply: controller.onCheckReply,
+                onBlockUser: controller.blockUser,
                 needDivider: false,
                 depth: node.depth,
                 reason: node.reason,
@@ -416,6 +414,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
           : (replyItem) => _showDialogue(context, replyItem),
       getReplyChain: () => controller.getParentChain(index, firstFloor),
       onCheckReply: controller.onCheckReply,
+      onBlockUser: controller.blockUser,
     );
   }
 

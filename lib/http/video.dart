@@ -39,6 +39,7 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/subtitle_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/wbi_sign.dart';
+import 'package:PiliPlus/utils/zone_filter.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:protobuf/protobuf.dart';
@@ -90,9 +91,9 @@ abstract final class VideoHttp {
       queryParameters: await WbiSign.makSign(params),
     );
     if (res.data['code'] == 0) {
+      final items = (res.data['data']['item'] as List?) ?? const [];
       List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
-      for (final i in res.data['data']['item']) {
-        //过滤掉live与ad，以及拉黑用户
+      for (final i in items) {
         if (_filterWebRcmd(i)) continue;
         final videoItem = RcmdVideoItemModel.fromJson(i);
         if (!RecommendFilter.filterWithExempt(videoItem)) {
@@ -105,13 +106,45 @@ abstract final class VideoHttp {
     }
   }
 
+  /// 「已关注 UP 豁免」是否生效（开关在推荐流设置里，默认开）
+  /// 只豁免长 UID 规则，黑名单和分区规则照旧
+  static bool _exemptFollowed(dynamic i) =>
+      RecommendFilter.exemptFilterForFollowed && i['is_followed'] == 1;
+
+  /// app 端推荐没有 is_followed，已关注信息在 rcmd_reason 里
+  static bool _exemptFollowedApp(dynamic i) {
+    if (!RecommendFilter.exemptFilterForFollowed) return false;
+    final reason = i['rcmd_reason'];
+    return reason == '已关注' || reason == '新关注';
+  }
+
   static bool _filterWebRcmd(dynamic i) {
     if (i['goto'] != 'av') return true;
+    // 收集分区名，供设置页点选
+    ZoneFilter.note(i['tname']);
+    // 拉黑用户 / 16 位ID账号（已关注的不按位数挡）
     if (i['owner'] != null &&
-        GlobalData().blackMids.contains(i['owner']['mid'])) {
+        GlobalData().shouldBlockUid(
+          i['owner']['mid'],
+          exemptFollowed: _exemptFollowed(i),
+        )) {
       return true;
     }
+    // 分区关键词：网页推荐这条路径原来没查分区，等于"分区过滤"对它无效
+    if (enableFilter && i['tname'] != null && zoneRegExp.hasMatch(i['tname'])) {
+      return true;
+    }
+    // 分区白名单：只放行名单里的分区
+    if (!ZoneFilter.allow(i['tname'])) return true;
     return false;
+  }
+
+  /// 分区规则统一入口（黑名单 + 白名单），给"复用旧列表重跑规则"用
+  static bool allowZone(String? tname) {
+    if (enableFilter && tname != null && tname.isNotEmpty) {
+      if (zoneRegExp.hasMatch(tname)) return false;
+    }
+    return ZoneFilter.allow(tname);
   }
 
   static bool _filterAppRcmd(dynamic i) {
@@ -122,14 +155,21 @@ abstract final class VideoHttp {
       return true;
     }
     if (i['args'] != null &&
-        GlobalData().blackMids.contains(i['args']['up_id'])) {
+        GlobalData().shouldBlockUid(
+          i['args']['up_id'],
+          exemptFollowed: _exemptFollowedApp(i),
+        )) {
       return true;
     }
+    // 收集分区名，供设置页点选
+    ZoneFilter.note(i['args']?['tname']);
     if (enableFilter &&
         i['args']?['tname'] != null &&
         zoneRegExp.hasMatch(i['args']['tname'])) {
       return true;
     }
+    // 分区白名单：只放行名单里的分区
+    if (!ZoneFilter.allow(i['args']?['tname'])) return true;
     return false;
   }
 
@@ -186,9 +226,9 @@ abstract final class VideoHttp {
       ),
     );
     if (res.data['code'] == 0) {
+      final items = (res.data['data']['items'] as List?) ?? const [];
       final list = <RcmdVideoItemAppModel>[];
-      for (final i in res.data['data']['items']) {
-        // 屏蔽推广和拉黑用户
+      for (final i in items) {
         if (_filterAppRcmd(i)) continue;
         final videoItem = RcmdVideoItemAppModel.fromJson(i);
         if (!RecommendFilter.filterWithExempt(videoItem)) {
@@ -202,14 +242,20 @@ abstract final class VideoHttp {
   }
 
   static bool _filterHotAndRank(dynamic i) {
-    if (GlobalData().blackMids.contains(i['owner']['mid'])) return false;
+    // 收集分区名，供设置页点选
+    ZoneFilter.note(i['tname']);
+    if (GlobalData().shouldBlockUid(i['owner']['mid'])) return false;
     if (RecommendFilter.filterTitle(i['title'])) return false;
+    // UP 名字关键词（热门/排行没有走 filterAll，这里补一下）
+    if (RecommendFilter.filterUpName(i['owner']?['name'])) return false;
     if (RecommendFilter.filterLikeRatio(i['stat']['like'], i['stat']['view'])) {
       return false;
     }
     if (enableFilter && i['tname'] != null && zoneRegExp.hasMatch(i['tname'])) {
       return false;
     }
+    // 分区白名单：只放行名单里的分区（返回 false 表示过滤掉）
+    if (!ZoneFilter.allow(i['tname'])) return false;
     return true;
   }
 
@@ -411,6 +457,11 @@ abstract final class VideoHttp {
     if (res.data['code'] == 0) {
       final items = (res.data['data'] as List?)
           ?.whereNotBlocked((e) => e['owner']?['mid'])
+          // 分区规则（黑名单 + 白名单，顺带收集分区名）
+          .where((e) {
+            ZoneFilter.note(e['tname']);
+            return allowZone(e['tname']);
+          })
           .map((i) => HotVideoItemModel.fromJson(i));
       final list = RecommendFilter.applyFilterToRelatedVideos
           ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()

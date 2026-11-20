@@ -5,6 +5,7 @@ import 'package:PiliPlus/models/home/rcmd/result.dart';
 import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
+import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/video/ai_conclusion/view.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
@@ -278,7 +279,10 @@ class VideoPopupMenu extends StatelessWidget {
                               onPressed: () {
                                 Get.back();
                                 Pref.setBlackMid(videoItem.owner.mid!);
+                                // 顺序不能反：先按索引移除当前这张卡，
+                                // 再按 UID 清其余卡片，否则 onRemove 会用过期索引删错卡
                                 onRemove?.call();
+                                _removeUpFromHomeList(videoItem.owner.mid);
                               },
                               child: const Text('本地屏蔽'),
                             ),
@@ -300,7 +304,10 @@ class VideoPopupMenu extends StatelessWidget {
                                   reSrc: 11,
                                 );
                                 if (res.isSuccess) {
-                                  onRemove?.call();
+                                  // 等网络这段时间列表可能已经变了，
+                                  // 回调里捕获的旧索引会删错卡，这里只按 UID 清理
+                                  _removeUpFromHomeList(videoItem.owner.mid);
+                                  SmartDialog.showToast('已拉黑');
                                 } else {
                                   res.toast();
                                 }
@@ -337,4 +344,11 @@ class VideoPopupMenu extends StatelessWidget {
               .toList(),
     );
   }
+}
+
+/// 本地屏蔽 / 服务端拉黑后，统一走这里清掉首页推荐列表里该 UP 的其余卡片
+void _removeUpFromHomeList(int? mid) {
+  if (mid == null) return;
+  if (!Get.isRegistered<RcmdController>()) return;
+  Get.find<RcmdController>().removeUpFromList(mid);
 }

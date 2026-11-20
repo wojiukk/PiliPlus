@@ -4,6 +4,7 @@ import 'package:PiliPlus/grpc/bilibili/pagination.pb.dart';
 import 'package:PiliPlus/grpc/grpc_req.dart';
 import 'package:PiliPlus/grpc/url.dart';
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:fixnum/fixnum.dart';
@@ -12,6 +13,7 @@ abstract final class ReplyGrpc {
   static bool antiGoodsReply = Pref.antiGoodsReply;
   static var blockAtOnlyReply = Pref.blockAtOnlyReply;
   static var blockReplyAtCount = Pref.blockReplyAtCount;
+  static var blockReplyLevel = Pref.blockReplyLevel;
   static RegExp replyRegExp = RegExp(
     Pref.banWordForReply,
     caseSensitive: false,
@@ -96,8 +98,40 @@ abstract final class ReplyGrpc {
         reply.content.atNameToMid.length >= blockReplyAtCount!;
   }
 
-  static bool needRemoveGrpc(ReplyInfo reply) {
-    return GlobalData().blackMids.contains(reply.mid.toInt()) ||
+  /// 屏蔽低等级评论；[upMid] 用于豁免 UP 本人
+  static bool _blockReplyLevel(ReplyInfo reply, Int64? upMid) {
+    final maxLevel = blockReplyLevel;
+    if (maxLevel <= 0) return false;
+    // 豁免 UP 本人和自己
+    if (reply.mid == upMid) return false;
+    if (reply.mid.toInt() == Accounts.main.mid) return false;
+    final member = reply.member;
+    // 等级数据缺失（已注销/接口未返回）时不处理，避免误删
+    if (!member.hasLevel()) return false;
+    return member.level.toInt() <= maxLevel;
+  }
+
+  /// 账号级屏蔽统一入口：本地黑名单 + 16 位ID（2023 年后注册）
+  /// 自己永远跳过；16 位规则额外豁免 UP 本人，否则新 UP 的评论区会整片空掉
+  static bool _blockReplyUid(ReplyInfo reply, Int64? upMid) {
+    final mid = reply.mid.toInt();
+    if (mid == Accounts.main.mid) return false;
+    final gd = GlobalData();
+    if (gd.blackMids.contains(mid)) return true;
+    if (!gd.blockSnowflakeUid) return false;
+    if (upMid != null && reply.mid == upMid) return false;
+    // isSnowflakeUid 是 static，只能通过类名调用
+    return GlobalData.isSnowflakeUid(reply.mid);
+  }
+
+  static bool needRemoveGrpc(ReplyInfo reply, {Int64? upMid}) {
+    // UP 本人的评论一律保留：只有你自己把他拉黑了才会挡。
+    // upMid 为 0 表示接口没给（动态/专栏评论区等），这时不做豁免，避免误伤。
+    if (upMid != null && upMid != Int64.ZERO && reply.mid == upMid) {
+      return GlobalData().blackMids.contains(reply.mid.toInt());
+    }
+    return _blockReplyUid(reply, upMid) ||
+        _blockReplyLevel(reply, upMid) ||
         _blockReplyAtCount(reply) ||
         _blockAtOnlyReply(reply) ||
         (antiGoodsReply && _needRemoveGoodGrpc(reply)) ||
@@ -128,21 +162,21 @@ abstract final class ReplyGrpc {
       MainListReply.fromBuffer,
     );
     if (res case Success(:final response)) {
-      // keyword filter
+      final upMid = response.subjectControl.upMid;
       if (response.hasUpTop()) {
         final topReply = response.upTop;
-        if (needRemoveGrpc(topReply)) {
+        if (needRemoveGrpc(topReply, upMid: upMid)) {
           response.clearUpTop();
         } else {
-          topReply.replies.removeWhere(needRemoveGrpc);
+          topReply.replies.removeWhere((e) => needRemoveGrpc(e, upMid: upMid));
         }
       }
 
       if (response.replies.isNotEmpty) {
         response.replies.removeWhere((item) {
-          final hasMatch = needRemoveGrpc(item);
+          final hasMatch = needRemoveGrpc(item, upMid: upMid);
           if (!hasMatch && item.replies.isNotEmpty) {
-            item.replies.removeWhere(needRemoveGrpc);
+            item.replies.removeWhere((e) => needRemoveGrpc(e, upMid: upMid));
           }
           return hasMatch;
         });
@@ -186,12 +220,13 @@ abstract final class ReplyGrpc {
       ),
       DetailListReply.fromBuffer,
     );
+    final upMid = res.dataOrNull?.subjectControl.upMid;
     return res
       ..dataOrNull?.root.replies.removeWhere(
         removed == null
-            ? needRemoveGrpc
+            ? (e) => needRemoveGrpc(e, upMid: upMid)
             : (i) {
-                final flag = needRemoveGrpc(i);
+                final flag = needRemoveGrpc(i, upMid: upMid);
                 if (flag) removed[i.id] = i;
                 return flag;
               },
@@ -233,7 +268,12 @@ abstract final class ReplyGrpc {
       ),
       DialogListReply.fromBuffer,
     );
-    return res..dataOrNull?.replies.removeWhere(needRemoveGrpc);
+    // 对话列表同理，传 UP mid 才会豁免 UP 本人的回复
+    final upMid = res.dataOrNull?.subjectControl.upMid;
+    return res
+      ..dataOrNull?.replies.removeWhere(
+        (e) => needRemoveGrpc(e, upMid: upMid),
+      );
   }
 
   static Future<LoadingState<SearchItemReply>> searchItem({

@@ -331,6 +331,35 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     loadingState.refresh();
   }
 
+  void blockUser(ReplyInfo item) {
+    final mid = item.mid;
+    Pref.setBlackMid(mid.toInt());
+    final data = loadingState.value.data;
+    if (data == null) return;
+    var removed = 0;
+    for (final root in data) {
+      if (root.mid == mid) continue;
+      final before = root.replies.length;
+      root.replies.removeWhere((reply) => reply.mid == mid);
+      final delta = before - root.replies.length;
+      if (delta > 0) {
+        final rest = root.count.toInt() - delta;
+        root.count = Int64(rest < 0 ? 0 : rest);
+        removed += delta;
+      }
+    }
+    data.removeWhere((root) {
+      if (root.mid != mid) return false;
+      removed += 1 + root.replies.length;
+      return true;
+    });
+    if (removed > 0) {
+      final rest = count.value - removed;
+      count.value = rest < 0 ? 0 : rest;
+      loadingState.refresh();
+    }
+  }
+
   void onCheckReply(ReplyInfo replyInfo, {bool isManual = true}) {
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,

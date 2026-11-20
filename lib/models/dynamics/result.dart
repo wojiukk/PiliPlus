@@ -7,6 +7,7 @@ import 'package:PiliPlus/models/model_avatar.dart';
 import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models_new/live/live_feed_index/watched_show.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/parse_bool.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
 import 'package:PiliPlus/utils/parse_string.dart';
@@ -80,6 +81,23 @@ class DynamicsDataModel {
         }
         if (filterBan &&
             tempBannedList!.contains(item.modules.moduleAuthor?.mid)) {
+          continue;
+        }
+        // 关注流只按本地黑名单挡，不套用「按 UID 位数屏蔽」：
+        // 这条流里全是关注的人，16 位 mid 的新号（2024 年后注册）会被整条吞掉；
+        // 用户主页（up）不处理，避免把本人动态挡掉
+        if (type != DynamicsTabType.up &&
+            GlobalData().isBlacklisted(item.modules.moduleAuthor?.mid)) {
+          continue;
+        }
+        // 转发：原作者在本地黑名单里才整条丢掉。
+        // 这里同样不套用「按 UID 位数屏蔽」——关注的人转了一条新号的动态，
+        // 被吞掉的是你关注的那个人的动态，代价不对等
+        if (type != DynamicsTabType.up &&
+            item.orig != null &&
+            GlobalData().isBlacklisted(
+              item.orig!.modules.moduleAuthor?.mid,
+            )) {
           continue;
         }
         items!.add(item);

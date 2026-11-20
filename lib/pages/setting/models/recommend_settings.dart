@@ -3,6 +3,7 @@ import 'package:PiliPlus/models/common/rcmd_source.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -69,6 +70,15 @@ List<SettingsModel> get recommendSettings => [
     banScope: '推荐、热门、分区、相关视频',
   ),
   getBanWordModel(
+    title: 'UP 名字关键词过滤',
+    key: SettingBoxKey.banUpNames,
+    onChanged: (value) {
+      RecommendFilter.upNameRegExp = value;
+      RecommendFilter.enableUpName = value.pattern.isNotEmpty;
+    },
+    banScope: '推荐、热门/排行、相关视频、直播列表（搜索不受影响）',
+  ),
+  getBanWordModel(
     title: '分区关键词过滤',
     key: SettingBoxKey.banWordForZone,
     onChanged: (value) {
@@ -107,6 +117,23 @@ List<SettingsModel> get recommendSettings => [
     setKey: SettingBoxKey.applyFilterToRelatedVideos,
     defaultVal: true,
     onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
+  ),
+  SwitchModel(
+    title: '按 UID 位数屏蔽（16 位及以上）',
+    subtitle:
+        '作用域: 评论、首页推荐、热门/排行、相关视频、搜索结果、直播弹幕\n'
+        '动态流不套用这条规则（那里全是关注的人）\n'
+        '16 位及以上属于「长 UID」号，多为 2023 年后注册；只是近似，不等于注册时间\n'
+        '纯本地判断，默认关闭',
+    leading: const Icon(Icons.block),
+    setKey: SettingBoxKey.blockSnowflakeUid,
+    defaultVal: false,
+    onChanged: (value) => GlobalData().blockSnowflakeUid = value,
+  ),
+  getBlockTagsModel(
+    title: '搜索标签黑名单',
+    key: SettingBoxKey.blockSearchTags,
+    scope: '搜索结果（综合/视频）',
   ),
 ];
 

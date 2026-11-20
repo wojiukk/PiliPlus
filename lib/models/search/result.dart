@@ -9,6 +9,8 @@ import 'package:PiliPlus/utils/em.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
+import 'package:PiliPlus/utils/recommend_filter.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 abstract class SearchNumData<T> {
@@ -27,11 +29,43 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
     super.list,
   });
 
+  /// 搜索结果的低质量过滤：只应用「时长 / 播放量 / 点赞比」三条，
+  /// 刻意不应用标题关键词（否则搜被屏蔽的词会一条都搜不到）
+  static bool _isLowQuality(SearchVideoItemModel item) =>
+      RecommendFilter.filterDuration(item.duration) ||
+      RecommendFilter.filterLikeRatio(item.stat.like, item.stat.view);
+
+  /// 同一 BV 号只保留第一次出现（接口偶尔会重复返回同一条视频）
+  static bool _firstSeen(SearchVideoItemModel item, Set<String> seen) {
+    final key = item.bvid ?? item.aid?.toString();
+    if (key == null || key.isEmpty) return true;
+    return seen.add(key);
+  }
+
+  /// 标签黑名单：标签里**包含**任一屏蔽词即隐藏（大小写不敏感）
+  /// 用包含匹配，「原神」能连带干掉「原神二创」「原神同人」，不用逐个列变体
+  static bool _blockByTag(SearchVideoItemModel item, Set<String> blockTags) {
+    if (blockTags.isEmpty) return false;
+    if (item.tagList.isNotEmpty) {
+      return item.tagList.any(
+        (tag) => blockTags.any((word) => tag.contains(word)),
+      );
+    }
+    // 接口没返回标签时退化为标题/简介匹配，保证老接口也能生效
+    final text = '${item.title} ${item.desc ?? ''}'.toLowerCase();
+    return blockTags.any((tag) => text.contains(tag));
+  }
+
   SearchVideoData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
+    final seen = <String>{};
+    final blockTags = Pref.blockSearchTags;
     list = (json['result'] as List?)
         ?.whereNotBlocked((e) => e['mid'])
         .map((e) => SearchVideoItemModel.fromJson(e))
+        .where((e) => !_isLowQuality(e))
+        .where((e) => !_blockByTag(e, blockTags))
+        .where((e) => _firstSeen(e, seen))
         .toList();
   }
 
@@ -46,14 +80,21 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
       for (final item in result) {
         switch (item['result_type']) {
           case 'video':
-            list = (item['data'] as List?)
-                ?.whereNotBlocked((e) => e['mid'])
-                .map((e) => SearchVideoItemModel.fromJson(e))
-                .toList();
+            {
+              final seen = <String>{};
+              final blockTags = Pref.blockSearchTags;
+              list = (item['data'] as List?)
+                  ?.whereNotBlocked((e) => e['mid'])
+                  .map((e) => SearchVideoItemModel.fromJson(e))
+                  .where((e) => !_isLowQuality(e))
+                  .where((e) => !_blockByTag(e, blockTags))
+                  .where((e) => _firstSeen(e, seen))
+                  .toList();
+            }
           case 'bili_user':
             if (item['data'] case List users when users.isNotEmpty) {
               for (final e in users) {
-                if (!GlobalData().blackMids.contains(e['mid'])) {
+                if (!GlobalData().shouldBlockUid(e['mid'])) {
                   (searchUser ??= <SearchUser>[]).add(SearchUser.fromJson(e));
                 }
               }
@@ -187,6 +228,9 @@ class SearchVideoItemModel extends HorizontalVideoModel {
   int? id;
   String? arcurl;
   String? tag;
+
+  /// 拆分后的标签（小写、去空）；接口没返回标签时为空
+  List<String> tagList = const [];
   int? ctime;
 
   @override
@@ -197,6 +241,18 @@ class SearchVideoItemModel extends HorizontalVideoModel {
     arcurl = json['arcurl'];
     aid = json['aid'];
     bvid = json['bvid'];
+    tag = switch (json['tag']) {
+      final String s => s,
+      final List<dynamic> l => l.whereType<String>().join(','),
+      _ => null,
+    };
+    tagList = tag == null
+        ? const []
+        : tag!
+              .split(RegExp(r'[,，|、]'))
+              .map((e) => e.trim().toLowerCase())
+              .where((e) => e.isNotEmpty)
+              .toList();
     titleList = Em.regTitle(json['title']);
     title = titleList!.map((i) => i.text).join();
     desc = json['description'];

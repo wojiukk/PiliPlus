@@ -122,6 +122,7 @@ class _BlackListPageState extends State<BlackListPage>
       return;
     }
     _blackListController.blackMids.add(intMid);
+    _blackListController.persist();
     SmartDialog.showToast('屏蔽成功');
     setState(() {});
   }
@@ -160,6 +161,7 @@ class _BlackListPageState extends State<BlackListPage>
       onImport: (json) {
         final mids = Set<int>.from(json);
         _blackListController.blackMids.addAll(mids);
+        _blackListController.persist();
         setState(() {});
       },
     );
@@ -215,6 +217,7 @@ class _BlackListPageState extends State<BlackListPage>
                         title: const Text('确定移除该用户？'),
                         onConfirm: () {
                           _blackListController.blackMids.remove(mid);
+                          _blackListController.persist();
                           setState(() {});
                         },
                       ),

@@ -116,6 +116,22 @@ class VideoReplyReplyController extends ReplyController
       replies.add(firstFloor);
     }
     return replies.reversed;
+  /// 屏蔽作者后，楼中楼页顶部那条主评论是单独渲染的，要一起清掉
+  @override
+  void blockUser(ReplyInfo item) {
+    super.blockUser(item);
+    if (firstFloor.value?.mid == item.mid) {
+      firstFloor.value = null;
+    }
+    removedReply.removeWhere((_, reply) => reply.mid == item.mid);
+    if (showReplyTree) {
+      if (loadingState.value.data?.isNotEmpty == true) {
+        buildTree();
+      } else {
+        replyTree.value = null;
+        showReplyTree = false;
+      }
+    }
   }
 
   bool setIndexById(Int64 id64, [List<ReplyInfo>? replies]) {

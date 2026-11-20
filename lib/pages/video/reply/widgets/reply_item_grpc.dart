@@ -421,6 +421,7 @@ class ReplyItemGrpc extends StatelessWidget {
     this.collapsed = 0,
     this.toggleCollapse,
     this.onScrollLeft,
+    this.onBlockUser,
   });
   final ReplyInfo replyItem;
   final int replyLevel;
@@ -441,6 +442,7 @@ class ReplyItemGrpc extends StatelessWidget {
   final int collapsed;
   final VoidCallback? toggleCollapse;
   final VoidCallback? onScrollLeft;
+  final ValueChanged<ReplyInfo>? onBlockUser;
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
   static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
@@ -709,6 +711,11 @@ class ReplyItemGrpc extends StatelessWidget {
   Widget? _buildPictures() {
     final pictures = replyItem.content.pictures;
     if (pictures.isEmpty) return null;
+    if (Pref.hideReplyPicture) {
+      return replyItem.content.message.trim().isEmpty
+          ? const Text('图片已隐藏')
+          : null;
+    }
     return ImageGridView(
       picArr: pictures
           .map(
@@ -1390,14 +1397,17 @@ class ReplyItemGrpc extends StatelessWidget {
             leading: Icon(Icons.delete_outlined, color: errorColor, size: 19),
             title: Text('删除', style: style.copyWith(color: errorColor)),
           ),
-        if (ownerMid.isZero)
+        if (ownerMid != item.mid)
           ListTile(
             onTap: () {
               Get.back();
-              Pref.setBlackMid(item.mid.toInt());
-              onDelete?.call();
-              SmartDialog.showToast('屏蔽成功');
-              return;
+              if (onBlockUser case final block?) {
+                block(item);
+              } else {
+                Pref.setBlackMid(item.mid.toInt());
+                onDelete?.call();
+              }
+              SmartDialog.showToast('已屏蔽该用户');
             },
             minLeadingWidth: 0,
             leading: Icon(Icons.error_outline, color: errorColor, size: 19),
@@ -1405,8 +1415,8 @@ class ReplyItemGrpc extends StatelessWidget {
               '屏蔽',
               style: TextStyle(fontSize: 14, color: errorColor),
             ),
-          )
-        else
+          ),
+        if (!ownerMid.isZero && ownerMid != item.mid)
           ListTile(
             onTap: () {
               Get.back();
@@ -1417,6 +1427,7 @@ class ReplyItemGrpc extends StatelessWidget {
               autoWrapReportDialog(
                 context,
                 onRemove: onDelete,
+                onBlock: onBlockUser == null ? null : () => onBlockUser!(item),
                 mid: () => item.mid.toInt(),
                 ReportOptions.commentReport,
                 withContent: ReportOptions.withContentReply,

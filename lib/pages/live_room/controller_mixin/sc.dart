@@ -1,6 +1,6 @@
 part of 'package:PiliPlus/pages/live_room/controller.dart';
 
-mixin _LiveSCMixin on GetxController, _LiveDataMixin {
+mixin _LiveSCMixin on GetxController, _LiveDataMixin, _LiveBlockMixin {
   late final fsSC = Rxn<SuperChatItem>();
   late final enableFSSC = Pref.enableFullScreenSC;
   late final fsSCScale = Pref.fullScreenSCScale;
@@ -23,7 +23,7 @@ mixin _LiveSCMixin on GetxController, _LiveDataMixin {
     final res = await LiveHttp.superChatMsg(roomId);
     if (isClosed) return;
     if (res.dataOrNull?.list case final list? when list.isNotEmpty) {
-      superChatMsg.addAll(list);
+      superChatMsg.addAll(list.where((item) => !isBlockedSc(item)));
     }
   }
 

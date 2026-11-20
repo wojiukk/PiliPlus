@@ -82,10 +82,23 @@ List<SettingsModel> get replySettings => [
     setKey: SettingBoxKey.blockAtOnlyReply,
     onChanged: _onBlockAtOnlyReplyChanged,
   ),
+  const NormalModel(
+    title: '屏蔽低等级评论',
+    getSubtitle: _replyLevelSubtitle,
+    leading: Icon(Icons.military_tech_outlined),
+    onTap: _showReplyLevelDialog,
+  ),
   const SwitchModel(
     title: '屏蔽复制简介评论',
     leading: Icon(Icons.summarize),
     setKey: SettingBoxKey.filterIntro,
+    defaultVal: false,
+  ),
+  const SwitchModel(
+    title: '屏蔽评论图片',
+    subtitle: '只隐藏评论区里别人发的配图，文字照常显示；视频封面、头像不受影响',
+    leading: Icon(Icons.image_not_supported_outlined),
+    setKey: SettingBoxKey.hideReplyPicture,
     defaultVal: false,
   ),
   getBanWordModel(
@@ -260,4 +273,38 @@ Future<void> _showReplyDepthDialog(
     GStorage.setting.put(SettingBoxKey.foldDepth, res.toInt());
     setState();
   }
+}
+String _replyLevelSubtitle() {
+  final level = Pref.blockReplyLevel;
+  if (level <= 0) return '禁用';
+  return '屏蔽 lv$level 及以下的评论';
+}
+
+Future<void> _showReplyLevelDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  void onChanged(int value) {
+    Get.back();
+    ReplyGrpc.blockReplyLevel = value;
+    GStorage.setting
+        .put(SettingBoxKey.blockReplyLevel, value)
+        .whenComplete(setState);
+  }
+
+  final current = Pref.blockReplyLevel;
+  await showDialog(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: const Text('屏蔽低等级评论'),
+      children: [
+        for (int i = 0; i <= 6; i++)
+          ListTile(
+            title: Text(i == 0 ? '禁用' : '屏蔽 lv$i 及以下'),
+            trailing: i == current ? const Icon(Icons.check) : null,
+            onTap: () => onChanged(i),
+          ),
+      ],
+    ),
+  );
 }

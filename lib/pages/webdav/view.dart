@@ -118,6 +118,99 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().backupBlacklist,
+                    child: const Text('备份黑名单'),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().restoreBlacklist,
+                    child: const Text('恢复黑名单'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().backupBlockTags,
+                    child: const Text('备份标签'),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().restoreBlockTags,
+                    child: const Text('恢复标签'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().backupFilterRules,
+                    child: const Text('备份过滤规则'),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Style.mdRadius,
+                      ),
+                    ),
+                    onPressed: WebDav().restoreFilterRules,
+                    child: const Text('恢复过滤规则'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '过滤规则含：评论/标题/分区/动态关键词、直播弹幕词、视频弹幕词、SC 金额、标签名单，'
+              '以及屏蔽开关与阈值（UID 位数、投稿数、带货、只@、已关注豁免、时长/播放/点赞率）。\n'
+              '关键词与名单按并集合并；开关和阈值按备份覆盖，保证各设备一致。\n'
+              '含括号分组或内容无效的正则不做并集，改为按备份覆盖，恢复时会提示哪几条需要核对。\n'
+              '注：「备份标签 / 恢复标签」等同于过滤规则里的标签部分，单独留着方便只同步标签。',
+              style: TextStyle(fontSize: 12),
+            ),
           ],
         ),
       ),

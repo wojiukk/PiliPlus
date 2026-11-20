@@ -8,8 +8,10 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account_adapter.dart';
 import 'package:PiliPlus/utils/accounts/account_type_adapter.dart';
 import 'package:PiliPlus/utils/accounts/cookie_jar_adapter.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/set_int_adapter.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:hive_ce/hive.dart';
@@ -81,6 +83,8 @@ abstract final class GStorage {
     return Utils.jsonEncoder.convert({
       setting.name: setting.toMap(),
       video.name: video.toMap(),
+      // 黑名单在 localCache box 里，不随 setting 一起导出，这里单独带一份
+      LocalCacheKey.blackMids: Pref.blackMids.toList(),
     });
   }
 
@@ -90,10 +94,330 @@ abstract final class GStorage {
   static Future<List<void>> importAllJsonSettings(
     Map<String, dynamic> map,
   ) {
+    // 老备份（或别人的备份）里没有该键时保留本地黑名单，不清空
+    if (map[LocalCacheKey.blackMids] case final List<dynamic> list) {
+      final ids = Set<int>.from(list.whereType<int>());
+      // 必须就地修改：GlobalData() 是单例，blackMids 在构造时已绑定这个 Set，
+      // whereNotBlocked 全程读该引用；换成新 Set 会导致本次进程仍按旧名单过滤
+      final set = GlobalData().blackMids
+        ..clear()
+        ..addAll(ids);
+      Pref.blackMids = set;
+    }
     return Future.wait([
       setting.clear().then((_) => setting.putAll(map[setting.name])),
       video.clear().then((_) => video.putAll(map[video.name])),
     ]);
+  }
+
+  /// 仅导出黑名单（WebDAV 单独同步用，不含设置）
+  static String exportBlacklist() => Utils.jsonEncoder.convert({
+    LocalCacheKey.blackMids: Pref.blackMids.toList(),
+  });
+
+  /// 解析黑名单备份，返回其中的 mid 集合；格式不对时返回空集合
+  static Set<int> parseBlacklist(String data) {
+    final map = jsonDecode(data);
+    if (map is Map) {
+      if (map[LocalCacheKey.blackMids] case final List<dynamic> list) {
+        return Set<int>.from(list.whereType<int>());
+      }
+    }
+    return <int>{};
+  }
+
+  /// 合并黑名单（本地 ∪ [ids]），返回合并后的总人数
+  static int mergeBlacklist(Set<int> ids) {
+    final set = GlobalData().blackMids..addAll(ids);
+    Pref.blackMids = set;
+    return set.length;
+  }
+
+  /// 仅导出搜索标签黑名单（WebDAV 单独同步用）
+  static String exportBlockTags() => Utils.jsonEncoder.convert({
+    SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
+  });
+
+  /// 解析标签黑名单备份，返回原始文本；格式不对时返回空字符串
+  static String parseBlockTags(String data) {
+    final map = jsonDecode(data);
+    if (map is Map) {
+      if (map[SettingBoxKey.blockSearchTags] case final String tags) {
+        return tags;
+      }
+      if (map[SettingBoxKey.blockSearchTags] case final List<dynamic> list) {
+        return list.whereType<String>().join('\n');
+      }
+    }
+    return '';
+  }
+
+  /// 合并标签黑名单（本地 ∪ [raw]），返回合并后的标签总数
+  /// 按小写判重，保留用户原本的写法
+  static int mergeBlockTags(String raw) {
+    Iterable<String> split(String value) => value
+        .split(RegExp(r'[,，\n\r|、]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty);
+
+    final seen = <String>{};
+    final merged = <String>[];
+    for (final tag in [...split(Pref.blockSearchTagsRaw), ...split(raw)]) {
+      if (seen.add(tag.toLowerCase())) merged.add(tag);
+    }
+    Pref.blockSearchTags = merged.toSet();
+    return merged.length;
+  }
+
+  /// ===== 分区白名单单独同步 =====
+
+  /// 仅导出分区白名单
+  static String exportAllowZones() =>
+      Utils.jsonEncoder.convert({SettingBoxKey.allowZones: Pref.allowZonesRaw});
+
+  /// 解析分区白名单备份。
+  /// - 字段不存在 → null（不是白名单备份，忽略）
+  /// - 合法空字符串 / 全字符串的空列表 → ''（表示"清空白名单"）
+  /// - 类型不对 → null（拒绝覆盖，别把错误数据当清空）
+  static String? parseAllowZones(String data) {
+    final map = jsonDecode(data);
+    if (map is! Map || !map.containsKey(SettingBoxKey.allowZones)) return null;
+    final value = map[SettingBoxKey.allowZones];
+    if (value is String) return value;
+    if (value is List && value.every((e) => e is String)) {
+      return value.join('\n');
+    }
+    return null;
+  }
+
+  /// 应用分区白名单：整份覆盖（白名单做并集只会越并越宽松），返回总数
+  static int applyAllowZones(String raw) {
+    final zones = raw
+        .split(RegExp(r'[,，\n\r|、]'))
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    Pref.allowZones = zones;
+    return zones.length;
+  }
+
+  /// ===== 过滤规则同步（只含关键词/标签/SC，不含播放与界面设置）=====
+
+  static const String _filterRulesKey = 'filterRules';
+  static const String _filterRulesVersionKey = 'version';
+
+  /// 导出过滤规则：关键词/标签/开关/阈值，独立于整包设置
+  static String exportFilterRules() => Utils.jsonEncoder.convert({
+    _filterRulesVersionKey: 2,
+    _filterRulesKey: {
+      // —— 关键词 ——
+      SettingBoxKey.banWordForReply: Pref.banWordForReply,
+      SettingBoxKey.banWordForRecommend: Pref.banWordForRecommend,
+      SettingBoxKey.banWordForZone: Pref.banWordForZone,
+      SettingBoxKey.banUpNames: Pref.banUpNames,
+      SettingBoxKey.banWordForDyn: Pref.banWordForDyn,
+      SettingBoxKey.liveBlockKeywords: Pref.liveBlockKeywordsRaw,
+      SettingBoxKey.danmakuBlockWords: Pref.danmakuBlockWordsRaw,
+      SettingBoxKey.blockSearchTags: Pref.blockSearchTagsRaw,
+      SettingBoxKey.superChatMinPrice: Pref.superChatMinPrice,
+      // —— 屏蔽开关（恢复时覆盖本地）——
+      SettingBoxKey.blockSnowflakeUid: Pref.blockSnowflakeUid,
+      SettingBoxKey.applyFilterToRelatedVideos: Pref.applyFilterToRelatedVideos,
+      SettingBoxKey.exemptFilterForFollowed: Pref.exemptFilterForFollowed,
+      SettingBoxKey.antiGoodsDyn: Pref.antiGoodsDyn,
+      SettingBoxKey.antiGoodsReply: Pref.antiGoodsReply,
+      SettingBoxKey.blockAtOnlyReply: Pref.blockAtOnlyReply,
+      // —— 阈值 ——
+      SettingBoxKey.minDurationForRcmd: Pref.minDurationForRcmd,
+      SettingBoxKey.minPlayForRcmd: Pref.minPlayForRcmd,
+      SettingBoxKey.minLikeRatioForRecommend: Pref.minLikeRatioForRecommend,
+      SettingBoxKey.blockReplyAtCount: Pref.blockReplyAtCount,
+      SettingBoxKey.blockReplyLevel: Pref.blockReplyLevel,
+    },
+  });
+
+  /// 解析过滤规则备份；也兼容直接把键值放在顶层的文件
+  static Map<String, dynamic> parseFilterRules(String data) {
+    final map = jsonDecode(data);
+    if (map is! Map) return const {};
+    final rules = map[_filterRulesKey] ?? map;
+    if (rules is! Map) return const {};
+    return Map<String, dynamic>.from(rules);
+  }
+
+  static Iterable<String> _splitWords(String value) => value
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty);
+
+  static bool _isValidPattern(String pattern) {
+    if (pattern.isEmpty) return true;
+    try {
+      RegExp(pattern);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 不带括号分组的正则才能安全按 | 拆分合并：
+  /// `原神|崩坏`、`\[大笑\]|\[狗头\]` 都行（转义竖线拆开后拼回是原样）。
+  /// 带分组的（`(原神|崩坏)3`）拆分点不在顶层，拼回去可能改含义，这类不做拆分。
+  static bool _canSplitMerge(String pattern) =>
+      !pattern.contains('(') && !pattern.contains(')');
+
+  /// 正则规则合并。返回 [skipped] = 合并没能无损完成，调用方要提示用户核对。
+  ///
+  /// 三种情况：
+  /// 1. 两侧都是纯词表 → 按 | 拆开去重求并集（真正无损）
+  /// 2. 任一侧含分组 → **不做并集，按备份覆盖**。
+  ///    正则无法可靠求并集（`contains` 不等于"语义已覆盖"：`(原神|崩坏)` 包含
+  ///    子串"原神"，但匹配行为不等于单独的 `原神`），覆盖是幂等的、也不会越并越长。
+  ///    覆盖会把本地独有的词冲掉，这种要置 [skipped] 让用户核对
+  /// 3. 远端内容编译不过 → 保留本地并置 [skipped]，不能假装合并成功
+  static ({String text, bool skipped}) _mergePattern(String local, String remote) {
+    final remoteText = remote.trim();
+    if (remoteText.isEmpty) return (text: local, skipped: false);
+
+    if (local.trim().isEmpty) {
+      final ok = _isValidPattern(remoteText);
+      return (text: ok ? remoteText : local, skipped: !ok);
+    }
+
+    if (_canSplitMerge(local) && _canSplitMerge(remoteText)) {
+      final seen = <String>{};
+      final parts = <String>[];
+      for (final raw in [...local.split('|'), ...remoteText.split('|')]) {
+        final part = raw.trim();
+        if (part.isEmpty) continue;
+        if (seen.add(part.toLowerCase())) parts.add(part);
+      }
+      final merged = parts.join('|');
+      return _isValidPattern(merged)
+          ? (text: merged, skipped: false)
+          : (text: local, skipped: true);
+    }
+
+    // 含分组：按备份覆盖
+    if (!_isValidPattern(remoteText)) return (text: local, skipped: true);
+    // 本地有、远端没有的片段会被冲掉，这种情况要提示
+    final lost = _splitWords(local)
+        .where((w) => !remoteText.contains(w))
+        .toList();
+    return (text: remoteText, skipped: lost.isNotEmpty);
+  }
+
+  /// 关键词/标签按小写去重，保留用户原本写法
+  static List<String> _mergeWords(String local, String remote) {
+    final seen = <String>{};
+    final list = <String>[];
+    for (final word in [..._splitWords(local), ..._splitWords(remote)]) {
+      if (seen.add(word.toLowerCase())) list.add(word);
+    }
+    return list;
+  }
+
+  /// 合并过滤规则（并集），返回合并后的统计供提示用
+  static ({
+    int patterns,
+    int liveWords,
+    int danmakuWords,
+    int tags,
+    int scPrice,
+    int switches,
+    List<String> skippedPatterns,
+  })
+  mergeFilterRules(Map<String, dynamic> remote) {
+    String remoteText(String key) {
+      final value = remote[key];
+      return value is String ? value : '';
+    }
+
+    var patterns = 0;
+    final skippedPatterns = <String>[];
+    void mergePatternKey(String key, String local, String label) {
+      final res = _mergePattern(local, remoteText(key));
+      if (res.text != local) {
+        setting.put(key, res.text);
+        patterns++;
+      } else if (res.skipped) {
+        skippedPatterns.add(label);
+      }
+    }
+
+    mergePatternKey(SettingBoxKey.banWordForReply, Pref.banWordForReply, '评论');
+    mergePatternKey(
+      SettingBoxKey.banWordForRecommend,
+      Pref.banWordForRecommend,
+      '标题',
+    );
+    mergePatternKey(SettingBoxKey.banWordForZone, Pref.banWordForZone, '分区');
+    mergePatternKey(SettingBoxKey.banUpNames, Pref.banUpNames, 'UP名');
+    mergePatternKey(SettingBoxKey.banWordForDyn, Pref.banWordForDyn, '动态');
+
+    final liveWords = _mergeWords(
+      Pref.liveBlockKeywordsRaw,
+      remoteText(SettingBoxKey.liveBlockKeywords),
+    );
+    Pref.liveBlockKeywords = liveWords.toSet();
+
+    final danmakuWords = _mergeWords(
+      Pref.danmakuBlockWordsRaw,
+      remoteText(SettingBoxKey.danmakuBlockWords),
+    );
+    Pref.danmakuBlockWords = danmakuWords.toSet();
+
+    final tags = _mergeWords(
+      Pref.blockSearchTagsRaw,
+      remoteText(SettingBoxKey.blockSearchTags),
+    );
+    Pref.blockSearchTags = tags.toSet();
+
+    // 开关与阈值：直接采用备份里的值。
+    // 这类值没有"并集"可言——取更严或取更宽都会让两台设备互相拉扯，
+    // 最后既不是这台也不是那台，反而更难预期。
+    var switches = 0;
+    for (final key in const [
+      SettingBoxKey.blockSnowflakeUid,
+      SettingBoxKey.applyFilterToRelatedVideos,
+      SettingBoxKey.exemptFilterForFollowed,
+      SettingBoxKey.antiGoodsDyn,
+      SettingBoxKey.antiGoodsReply,
+      SettingBoxKey.blockAtOnlyReply,
+      SettingBoxKey.minDurationForRcmd,
+      SettingBoxKey.minPlayForRcmd,
+      SettingBoxKey.minLikeRatioForRecommend,
+      SettingBoxKey.blockReplyAtCount,
+      SettingBoxKey.blockReplyLevel,
+    ]) {
+      if (!remote.containsKey(key)) continue;
+      final value = remote[key];
+      if (value == null || value is bool || value is num) {
+        setting.put(key, value);
+        switches++;
+      }
+    }
+
+    // 金额阈值取两者较大值：屏蔽得更彻底（想反向合并可改成 min）
+    var scPrice = Pref.superChatMinPrice;
+    final remotePrice = remote[SettingBoxKey.superChatMinPrice];
+    if (remotePrice is num) {
+      final value = remotePrice.toInt();
+      if (value > scPrice) {
+        scPrice = value;
+        setting.put(SettingBoxKey.superChatMinPrice, value);
+      }
+    }
+
+    return (
+      patterns: patterns,
+      liveWords: liveWords.length,
+      danmakuWords: danmakuWords.length,
+      tags: tags.length,
+      scPrice: scPrice,
+      switches: switches,
+      skippedPatterns: skippedPatterns,
+    );
   }
 
   static void regAdapter() {

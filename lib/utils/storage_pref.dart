@@ -66,23 +66,31 @@ abstract final class Pref {
   static Set<int> get blackMids =>
       _localCache.get(LocalCacheKey.blackMids, defaultValue: <int>{});
 
-  static set blackMids(Set<int> blackMidsSet) =>
-      _localCache.put(LocalCacheKey.blackMids, blackMidsSet);
+  static set blackMids(Set<int> blackMidsSet) {
+    _localCache.put(LocalCacheKey.blackMids, blackMidsSet);
+    GlobalData().blacklistVersion++;
+  }
 
   static RuleFilter get danmakuFilterRule => _localCache.get(
     LocalCacheKey.danmakuFilterRules,
     defaultValue: RuleFilter.empty(),
   );
 
-  static void setBlackMid(int mid) => _localCache.put(
-    LocalCacheKey.blackMids,
-    GlobalData().blackMids..add(mid),
-  );
+  static void setBlackMid(int mid) {
+    _localCache.put(
+      LocalCacheKey.blackMids,
+      GlobalData().blackMids..add(mid),
+    );
+    GlobalData().blacklistVersion++;
+  }
 
-  static void removeBlackMid(int mid) => _localCache.put(
-    LocalCacheKey.blackMids,
-    GlobalData().blackMids..remove(mid),
-  );
+  static void removeBlackMid(int mid) {
+    _localCache.put(
+      LocalCacheKey.blackMids,
+      GlobalData().blackMids..remove(mid),
+    );
+    GlobalData().blacklistVersion++;
+  }
 
   static MemberTabType get memberTab =>
       MemberTabType.values[_setting.get(
@@ -291,6 +299,10 @@ abstract final class Pref {
 
   static String get banWordForZone =>
       _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
+
+  /// UP 名字关键词（正则），只作用于推荐/热门/分区/相关视频/直播列表
+  static String get banUpNames =>
+      _setting.get(SettingBoxKey.banUpNames, defaultValue: '');
 
   static bool get appRcmd =>
       _setting.get(SettingBoxKey.appRcmd, defaultValue: true);
@@ -674,6 +686,10 @@ abstract final class Pref {
     defaultValue: true,
   );
 
+  /// 屏蔽 16 位 UID（2023 年后注册的雪花 ID 账号），默认关闭
+  static bool get blockSnowflakeUid =>
+      _setting.get(SettingBoxKey.blockSnowflakeUid, defaultValue: false);
+
   static bool get enableBackgroundPlay =>
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);
 
@@ -985,6 +1001,10 @@ abstract final class Pref {
         defaultValue: SuperChatType.valid.index,
       )];
 
+  /// 低于该金额（元）的 SC 不显示，0 表示不按金额屏蔽
+  static int get superChatMinPrice =>
+      _setting.get(SettingBoxKey.superChatMinPrice, defaultValue: 0);
+
   static double get fullScreenSCWidth => _setting.get(
     SettingBoxKey.fullScreenSCWidth,
     defaultValue: kFullScreenSCWidth,
@@ -1111,6 +1131,109 @@ abstract final class Pref {
 
   static int? get blockReplyAtCount =>
       _setting.get(SettingBoxKey.blockReplyAtCount);
+
+  /// 屏蔽等级 ≤ 该值的评论，0 表示关闭
+  static int get blockReplyLevel =>
+      _setting.get(SettingBoxKey.blockReplyLevel, defaultValue: 4);
+
+  /// 只隐藏评论区的配图（别人评论里发的图），文字照常显示；
+  /// 视频封面、头像、动态图片都不受影响
+  static bool get hideReplyPicture =>
+      _setting.get(SettingBoxKey.hideReplyPicture, defaultValue: false);
+
+  /// 粉丝牌屏蔽名单原始字符串（逗号或换行分隔）
+  static String get blockFansMedalRaw =>
+      _setting.get(SettingBoxKey.blockFansMedal, defaultValue: '') as String;
+
+  /// 需要屏蔽的粉丝牌名字集合
+  static Set<String> get blockFansMedals => blockFansMedalRaw
+      .split(RegExp(r'[,，\n\r]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  /// 搜索标签黑名单原始字符串（换行或逗号分隔）
+  static String get blockSearchTagsRaw =>
+      _setting.get(SettingBoxKey.blockSearchTags, defaultValue: '') as String;
+
+  /// 搜索结果里要屏蔽的标签集合（统一小写比较，避免大小写漏判）
+  static Set<String> get blockSearchTags => blockSearchTagsRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim().toLowerCase())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set blockSearchTags(Set<String> tags) =>
+      _setting.put(SettingBoxKey.blockSearchTags, tags.join('\n'));
+
+  /// 追加一个屏蔽标签（已存在则忽略，保留用户原本写法）
+  static void addBlockTag(String tag) {
+    final value = tag.trim();
+    if (value.isEmpty) return;
+    final words = blockSearchTagsRaw
+        .split(RegExp(r'[,，\n\r|、]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (words.any((e) => e.toLowerCase() == value.toLowerCase())) return;
+    words.add(value);
+    blockSearchTags = words.toSet();
+  }
+
+  /// 直播弹幕屏蔽关键词原始字符串（本地，换行或逗号分隔）
+  static String get liveBlockKeywordsRaw =>
+      _setting.get(SettingBoxKey.liveBlockKeywords, defaultValue: '') as String;
+
+  /// 直播弹幕要屏蔽的关键词（本地，不依赖账号）
+  static Set<String> get liveBlockKeywords => liveBlockKeywordsRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set liveBlockKeywords(Set<String> words) =>
+      _setting.put(SettingBoxKey.liveBlockKeywords, words.join('\n'));
+
+  /// 视频弹幕本地屏蔽关键词原始字符串（换行或逗号分隔）
+  static String get danmakuBlockWordsRaw =>
+      _setting.get(SettingBoxKey.danmakuBlockWords, defaultValue: '') as String;
+
+  /// 分区白名单原始文本（留空 = 不启用）
+  static String get allowZonesRaw =>
+      _setting.get(SettingBoxKey.allowZones, defaultValue: '') as String;
+
+  /// 只允许出现这些分区的视频（统一小写，**精确匹配**，不做部分匹配）
+  static Set<String> get allowZones => allowZonesRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim().toLowerCase())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set allowZones(Set<String> zones) =>
+      _setting.put(SettingBoxKey.allowZones, zones.join('\n'));
+
+  /// 推荐里出现过的分区名（设置页做点选用，只存本地、不参与同步）
+  static String get seenZonesRaw =>
+      _setting.get(SettingBoxKey.seenZones, defaultValue: '') as String;
+
+  static Set<String> get seenZones => seenZonesRaw
+      .split(RegExp(r'[\n\r]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set seenZones(Set<String> zones) =>
+      _setting.put(SettingBoxKey.seenZones, zones.join('\n'));
+
+  /// 视频弹幕要屏蔽的关键词（本地，纯文本匹配，不依赖账号）
+  static Set<String> get danmakuBlockWords => danmakuBlockWordsRaw
+      .split(RegExp(r'[,，\n\r|、]'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  static set danmakuBlockWords(Set<String> words) =>
+      _setting.put(SettingBoxKey.danmakuBlockWords, words.join('\n'));
 
   static bool get filterIntro =>
       _setting.get(SettingBoxKey.filterIntro, defaultValue: false);

@@ -31,6 +31,13 @@ mixin _LiveBlockMixin on _LiveMedalMixin {
   }
 
   bool isBlocked(String text, Object uid) {
-    return _keywordList.any(text.contains) || _shieldUids.contains(uid);
+    return GlobalData().shouldBlockUid(uid) ||
+        Pref.liveBlockKeywords.any(text.contains) ||
+        _keywordList.any(text.contains) ||
+        _shieldUids.contains(uid);
   }
+
+  bool isBlockedSc(SuperChatItem item) =>
+      (Pref.superChatMinPrice > 0 && item.price < Pref.superChatMinPrice) ||
+      isBlocked(item.message, item.uid);
 }

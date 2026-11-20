@@ -144,6 +144,7 @@ mixin _LiveDMStreamMixin
           break;
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
           final item = SuperChatItem.fromJson(obj['data'], roomId);
+          if (isBlockedSc(item)) break;
           superChatMsg.insert(0, item);
           addDm(item);
           if (!enableFSSC) return;

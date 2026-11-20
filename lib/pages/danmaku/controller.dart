@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert' show ascii;
 import 'dart:io' show File;
 
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
@@ -8,8 +9,11 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/danmaku_utils.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:archive/archive.dart' show getCrc32;
 import 'package:path/path.dart' as path;
 
 class PlDanmakuController {
@@ -58,18 +62,56 @@ class PlDanmakuController {
     }
   }
 
+  /// 把本地黑名单的 mid 换算成弹幕用的 midHash（crc32 十六进制），
+  /// 和「弹幕屏蔽 - 用户」用的是同一套算法。
+  /// 名单大时每段弹幕都重算很浪费：按 GlobalData 的黑名单版本号缓存，
+  /// 版本号只增不减，增删都会失效（不能只比长度，换人时长度可能不变）。
+  static Set<String>? _hashCache;
+  static int _hashCacheVersion = -1;
+
+  Set<String> _buildBlacklistHashes() {
+    final gd = GlobalData();
+    final mids = gd.blackMids;
+    if (mids.isEmpty) return const <String>{};
+    if (_hashCache != null && _hashCacheVersion == gd.blacklistVersion) {
+      return _hashCache!;
+    }
+    final hashes = mids
+        .map((mid) => getCrc32(ascii.encode('$mid'), 0).toRadixString(16))
+        .toSet();
+    _hashCache = hashes;
+    _hashCacheVersion = gd.blacklistVersion;
+    return hashes;
+  }
+
   void handleDanmaku(List<DanmakuElem> elems) {
     if (elems.isEmpty) return;
     final uniques = HashMap<String, DanmakuElem>();
 
     final filters = _plPlayerController.filters;
     final shouldFilter = filters.count != 0;
+    final blockHashes = _buildBlacklistHashes();
+    // 本地关键词：纯文本匹配（自动转义），不依赖登录
+    final blockWords = Pref.danmakuBlockWords;
+    final localWordExp = blockWords.isEmpty
+        ? null
+        : RegExp(blockWords.map(RegExp.escape).join('|'), caseSensitive: false);
     for (final element in elems) {
       if (_isLogin) {
         element.isSelf = element.midHash == _plPlayerController.midHash;
       }
 
       if (!element.isSelf) {
+        // 本地黑名单用户的弹幕直接丢弃
+        if (blockHashes.contains(element.midHash)) {
+          continue;
+        }
+
+        // 本地关键词
+        if (localWordExp != null && localWordExp.hasMatch(element.content)) {
+          continue;
+        }
+
         if (_mergeDanmaku) {
           final elem = uniques[element.content];
           if (elem == null) {

@@ -93,6 +93,7 @@ abstract final class SettingBoxKey {
       horizontalPreview = 'horizontalPreview',
       banWordForReply = 'banWordForReply',
       banWordForZone = 'banWordForZone',
+      banUpNames = 'banUpNames',
       savedRcmdTip = 'savedRcmdTip',
       openInBrowser = 'openInBrowser',
       refreshDisplacement = 'refreshDisplacement',
@@ -167,9 +168,18 @@ abstract final class SettingBoxKey {
       blockReplyAtCount = 'blockReplyAtCount',
       filterIntro = 'filterIntro',
       showRefreshFAB = 'showRefreshFAB',
-      autoWearMedal = 'autoWearMedal';
+      autoWearMedal = 'autoWearMedal',
+      blockReplyLevel = 'blockReplyLevel',
+      blockFansMedal = 'blockFansMedal',
+      blockSnowflakeUid = 'blockSnowflakeUid',
+      allowZones = 'allowZones',
+      seenZones = 'seenZones',
+      blockSearchTags = 'blockSearchTags',
+      liveBlockKeywords = 'liveBlockKeywords',
+      hideReplyPicture = 'hideReplyPicture';
 
   static const String superChatType = 'superChatType',
+      superChatMinPrice = 'superChatMinPrice',
       enableFullScreenSC = 'enableFullScreenSC',
       fullScreenSCOpacity = 'fullScreenSCOpacity',
       fullScreenSCScale = 'fullScreenSCScale',
@@ -210,6 +220,7 @@ abstract final class SettingBoxKey {
 
   static const String enableShowDanmaku = 'enableShowDanmaku',
       enableShowLiveDanmaku = 'enableShowLiveDanmaku',
+      danmakuBlockWords = 'danmakuBlockWords',
       pipNoDanmaku = 'pipNoDanmaku',
       showVipDanmaku = 'showVipDanmaku',
       mergeDanmaku = 'mergeDanmaku',

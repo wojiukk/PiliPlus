@@ -1,5 +1,6 @@
 import 'package:PiliPlus/models_new/live/live_feed_index/card_data_list_item.dart';
 import 'package:PiliPlus/models_new/live/live_second_list/tag.dart';
+import 'package:PiliPlus/utils/live_filter.dart';
 
 class LiveSecondData {
   int? count;
@@ -16,6 +17,7 @@ class LiveSecondData {
     count: json['count'] as int?,
     cardList: (json['list'] as List<dynamic>?)
         ?.map((e) => CardLiveItem.fromJson(e as Map<String, dynamic>))
+        .where((e) => !LiveFilter.shouldBlock(e))
         .toList(),
     newTags: (json['new_tags'] as List<dynamic>?)
         ?.map((e) => LiveSecondTag.fromJson(e as Map<String, dynamic>))
