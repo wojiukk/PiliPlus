@@ -116,6 +116,8 @@ class VideoReplyReplyController extends ReplyController
       replies.add(firstFloor);
     }
     return replies.reversed;
+  }
+
   /// 屏蔽作者后，楼中楼页顶部那条主评论是单独渲染的，要一起清掉
   @override
   void blockUser(ReplyInfo item) {
